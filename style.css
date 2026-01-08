@@ -1,0 +1,103 @@
+/* Calm blue palette */
+:root {
+  --bg: #f5f9ff; /* page background */
+  --card: #ffffff; /* cards */
+  --border: #e6eef8; /* soft borders */
+  --text: #1f2d3d; /* primary text */
+  --muted: #5c6b7a; /* secondary text */
+  --primary: #3b82f6; /* button/badge primary */
+  --primary-600: #2563eb;
+  --primary-100: #e8f1ff;
+  --accent: #0ea5e9; /* hover accents */
+}
+
+/* Base */
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+.navbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.container {
+  max-width: 1080px;
+}
+
+/* Headings */
+h1.display-6 {
+  letter-spacing: 0.2px;
+}
+
+/* Cards */
+.card-elev {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 0.25rem 0.8rem rgba(20, 40, 80, 0.06);
+}
+.card-click {
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.12s ease,
+    border-color 0.12s ease;
+  border-color: var(--border);
+}
+.card-click:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.9rem 1.6rem rgba(20, 40, 80, 0.08);
+  border-color: var(--primary-100);
+}
+
+/* Badges */
+#user-badge,
+#role-badge {
+  font-weight: 600;
+  background-color: var(--primary-100);
+  color: var(--primary-600);
+  border: 1px solid var(--border);
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+.btn-primary:hover {
+  background-color: var(--primary-600);
+  border-color: var(--primary-600);
+}
+.btn-outline-secondary {
+  color: var(--muted);
+  border-color: var(--border);
+}
+.btn-outline-secondary:hover {
+  color: var(--primary-600);
+  border-color: var(--primary-600);
+}
+.btn-rounded {
+  border-radius: 999px;
+}
+
+/* Inputs */
+.form-control {
+  border-color: var(--border);
+  background-color: #fcfdff;
+}
+.form-control:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15);
+}
+
+/* Small text + helpers */
+.muted {
+  color: var(--muted);
+}
+.text-muted {
+  color: var(--muted) !important;
+}
+
+/* Spacing tweaks */
+#auth-area .card-body {
+  padding: 1.25rem 1.25rem;
+}

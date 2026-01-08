@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Oscar Kvalo Johansen — Innlogging</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3146019535106543"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-md bg-white border-bottom">
+      <div class="container">
+        <span class="navbar-brand">Oscar Kvalo Johansen</span>
+        <div class="ms-auto">
+          <span id="user-badge" class="badge rounded-pill text-bg-light me-2">
+            Gjest
+          </span>
+          <span
+            id="role-badge"
+            class="badge rounded-pill text-bg-secondary d-none"
+          >
+            Bruker
+          </span>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container my-4">
+      <section id="auth-area" class="mb-4">
+        <div class="card card-elev">
+          <div class="card-body">
+            <h1 class="h4 fw-semibold mb-3">Logg inn</h1>
+            <p class="text-muted small mb-3">
+              Skriv inn e-post og passord for å logge inn eller opprette ny
+              bruker. Vi sender en bekreftelseslenke hvis kontoen ikke finnes.
+            </p>
+            <form id="login-form" novalidate>
+              <div class="mb-3">
+                <label for="login-email" class="form-label">E-post</label>
+                <input
+                  type="email"
+                  class="form-control"
+                  id="login-email"
+                  autocomplete="email"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="login-password" class="form-label">Passord</label>
+                <input
+                  type="password"
+                  class="form-control"
+                  id="login-password"
+                  autocomplete="current-password"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn btn-primary w-100">
+                Logg inn eller opprett bruker
+              </button>
+            </form>
+            <div id="login-status" class="mt-3 text-muted small"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="account-area" class="d-none">
+        <div class="card card-elev">
+          <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h2 class="h5 fw-semibold mb-0">Konto</h2>
+              <span id="account-role" class="badge rounded-pill text-bg-light">
+                —
+              </span>
+            </div>
+            <div class="mb-3">
+              <small class="text-muted">E-post</small>
+              <div id="account-email" class="fw-semibold text-break">—</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button id="logout-btn" class="btn btn-outline-danger">
+                Logg ut
+              </button>
+              <button
+                id="refresh-session-btn"
+                class="btn btn-outline-secondary"
+              >
+                Oppdater status
+              </button>
+            </div>
+            <div id="account-status" class="mt-3 text-muted small"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="./Javascript/app.js"></script>
+  </body>
+</html>
