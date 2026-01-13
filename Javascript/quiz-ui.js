@@ -11,311 +11,201 @@ import {
 let currentQuizId = null;
 let currentQuizParticipantName = null;
 
-// Update navigation based on auth state
+const AREAS = [
+  "app-area",
+  "quiz-list-area",
+  "quiz-create-area",
+  "quiz-take-area",
+  "admin-results-area",
+  "results-area",
+];
+
+function toggleAreas(showIds = []) {
+  AREAS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle("d-none", !showIds.includes(id));
+  });
+}
+
 export function updateQuizNav() {
   const currentUser = getCurrentUser();
   const currentRole = getCurrentRole();
-
   const navUserBadge = document.getElementById("nav-user-badge");
   const createQuizBtn = document.getElementById("create-quiz-btn");
   const navAdminLink = document.getElementById("nav-admin");
   const logoutNavBtn = document.getElementById("logout-nav-btn");
 
-  if (currentUser) {
-    navUserBadge.textContent = currentUser.email;
-    logoutNavBtn.classList.remove("d-none");
-  } else {
-    navUserBadge.textContent = "Gjest";
-    logoutNavBtn.classList.add("d-none");
-  }
+  if (navUserBadge) navUserBadge.textContent = currentUser?.email || "Gjest";
+  logoutNavBtn?.classList.toggle("d-none", !currentUser);
 
-  if (currentRole === "admin" && createQuizBtn) {
-    createQuizBtn.classList.remove("d-none");
-    navAdminLink.classList.remove("d-none");
+  if (currentRole === "admin") {
+    createQuizBtn?.classList.remove("d-none");
+    navAdminLink?.classList.remove("d-none");
   } else {
-    if (createQuizBtn) createQuizBtn.classList.add("d-none");
-    navAdminLink.classList.add("d-none");
+    createQuizBtn?.classList.add("d-none");
+    navAdminLink?.classList.add("d-none");
   }
 }
 
-// Show quiz list
 export async function showQuizList() {
-  const appArea = document.getElementById("app-area");
-  const quizListArea = document.getElementById("quiz-list-area");
-  const quizCreateArea = document.getElementById("quiz-create-area");
-  const quizTakeArea = document.getElementById("quiz-take-area");
-  const adminResultsArea = document.getElementById("admin-results-area");
-  const resultsArea = document.getElementById("results-area");
-
-  if (appArea) appArea.classList.remove("d-none");
-  if (quizListArea) quizListArea.classList.remove("d-none");
-  if (quizCreateArea) quizCreateArea.classList.add("d-none");
-  if (quizTakeArea) quizTakeArea.classList.add("d-none");
-  if (adminResultsArea) adminResultsArea.classList.add("d-none");
-  if (resultsArea) resultsArea.classList.add("d-none");
-
+  toggleAreas(["app-area", "quiz-list-area"]);
   await loadQuizzes();
 }
 
-// Load and display all quizzes
 async function loadQuizzes() {
   const quizList = document.getElementById("quiz-list");
   if (!quizList) return;
 
   quizList.innerHTML =
     '<div class="col-12"><p class="text-muted">Laster...</p></div>';
-
   const quizzes = await fetchQuizzes();
 
-  if (quizzes.length === 0) {
-    quizList.innerHTML =
-      '<div class="col-12"><p class="text-muted">Ingen quiz tilgjengelig ennå.</p></div>';
-    return;
-  }
-
-  quizList.innerHTML = quizzes
-    .map(
-      (quiz) => `
-    <div class="col-md-6 col-lg-4">
-      <div class="card card-elev card-click h-100" data-quiz-id="${quiz.id}">
-        <div class="card-body">
-          <h5 class="card-title">${escapeHtml(quiz.title)}</h5>
-          <p class="card-text text-muted small">
-            ${escapeHtml(quiz.description || "")}
-          </p>
-          <small class="text-muted">
-            Opprettet: ${new Date(quiz.created_at).toLocaleDateString("no-NO")}
-          </small>
+  quizList.innerHTML =
+    quizzes.length === 0
+      ? '<div class="col-12"><p class="text-muted">Ingen quiz tilgjengelig ennå.</p></div>'
+      : quizzes
+          .map(
+            (q) => `
+      <div class="col-md-6 col-lg-4">
+        <div class="card card-elev card-click h-100" data-quiz-id="${q.id}">
+          <div class="card-body">
+            <h5 class="card-title">${escapeHtml(q.title)}</h5>
+            <p class="card-text text-muted small">${escapeHtml(
+              q.description || ""
+            )}</p>
+            <small class="text-muted">Opprettet: ${new Date(
+              q.created_at
+            ).toLocaleDateString("no-NO")}</small>
+          </div>
         </div>
       </div>
-    </div>
-  `
-    )
-    .join("");
+    `
+          )
+          .join("");
 
-  // Add click handlers
   document.querySelectorAll(".card-click").forEach((card) => {
-    card.addEventListener("click", () => {
-      const quizId = card.dataset.quizId;
-      showQuizTake(parseInt(quizId));
-    });
+    card.addEventListener("click", () => showQuizTake(+card.dataset.quizId));
   });
 }
 
-// Show quiz creation form
 export function showQuizCreate() {
-  const appArea = document.getElementById("app-area");
-  const quizListArea = document.getElementById("quiz-list-area");
-  const quizCreateArea = document.getElementById("quiz-create-area");
-  const quizTakeArea = document.getElementById("quiz-take-area");
-  const adminResultsArea = document.getElementById("admin-results-area");
-  const resultsArea = document.getElementById("results-area");
-
-  if (appArea) appArea.classList.remove("d-none");
-  if (quizListArea) quizListArea.classList.add("d-none");
-  if (quizCreateArea) quizCreateArea.classList.remove("d-none");
-  if (quizTakeArea) quizTakeArea.classList.add("d-none");
-  if (adminResultsArea) adminResultsArea.classList.add("d-none");
-  if (resultsArea) resultsArea.classList.add("d-none");
-
+  toggleAreas(["app-area", "quiz-create-area"]);
   initQuestionFields();
 }
 
-// Initialize question fields
 function initQuestionFields() {
   const container = document.getElementById("questions-container");
   if (!container) return;
-
-  if (container.children.length === 0) {
-    addQuestionField();
-  }
+  if (!container.children.length) addQuestionField();
 }
 
-// Add a question input field
 function addQuestionField() {
   const container = document.getElementById("questions-container");
   if (!container) return;
 
   const index = container.children.length;
-  const questionDiv = document.createElement("div");
-  questionDiv.className = "mb-3";
-  questionDiv.innerHTML = `
+  const div = document.createElement("div");
+  div.className = "mb-3";
+  div.innerHTML = `
     <label class="form-label">Spørsmål ${index + 1}</label>
     <div class="input-group">
-      <input
-        type="text"
-        class="form-control question-input"
-        placeholder="Skriv spørsmål..."
-        required
-      />
-      <button type="button" class="btn btn-outline-danger remove-question-btn">
-        Fjern
-      </button>
+      <input type="text" class="form-control question-input" placeholder="Skriv spørsmål..." required />
+      <button type="button" class="btn btn-outline-danger remove-question-btn">Fjern</button>
     </div>
   `;
 
-  const removeBtn = questionDiv.querySelector(".remove-question-btn");
-  removeBtn.addEventListener("click", () => {
-    questionDiv.remove();
+  div.querySelector(".remove-question-btn").addEventListener("click", () => {
+    div.remove();
     updateQuestionLabels();
   });
 
-  container.appendChild(questionDiv);
+  container.appendChild(div);
 }
 
-// Update question labels
 function updateQuestionLabels() {
   const container = document.getElementById("questions-container");
   if (!container) return;
-
-  Array.from(container.children).forEach((div, index) => {
+  Array.from(container.children).forEach((div, i) => {
     const label = div.querySelector("label");
-    if (label) label.textContent = `Spørsmål ${index + 1}`;
+    if (label) label.textContent = `Spørsmål ${i + 1}`;
   });
 }
 
-// Show quiz taking interface
 async function showQuizTake(quizId) {
   currentQuizId = quizId;
-
-  // Check if name is already stored for this quiz
-  const storedName = localStorage.getItem(`quiz_${quizId}_name`);
-  currentQuizParticipantName = storedName;
-
-  const appArea = document.getElementById("app-area");
-  const quizListArea = document.getElementById("quiz-list-area");
-  const quizCreateArea = document.getElementById("quiz-create-area");
-  const quizTakeArea = document.getElementById("quiz-take-area");
-  const adminResultsArea = document.getElementById("admin-results-area");
-  const resultsArea = document.getElementById("results-area");
-
-  if (appArea) appArea.classList.remove("d-none");
-  if (quizListArea) quizListArea.classList.add("d-none");
-  if (quizCreateArea) quizCreateArea.classList.add("d-none");
-  if (quizTakeArea) quizTakeArea.classList.remove("d-none");
-  if (adminResultsArea) adminResultsArea.classList.add("d-none");
-  if (resultsArea) resultsArea.classList.add("d-none");
-
-  await loadQuizForTaking(quizId, !storedName); // Pass true if name needs to be entered
+  currentQuizParticipantName = localStorage.getItem(`quiz_${quizId}_name`);
+  toggleAreas(["app-area", "quiz-take-area"]);
+  await loadQuizForTaking(quizId, !currentQuizParticipantName);
 }
 
-// Load quiz for taking
 async function loadQuizForTaking(quizId, needsName = false) {
   const quizData = await fetchQuizWithQuestions(quizId);
-  if (!quizData) {
-    alert("Kunne ikke laste quiz.");
-    return;
-  }
+  if (!quizData) return alert("Kunne ikke laste quiz.");
 
-  const titleEl = document.getElementById("quiz-take-title");
-  const descEl = document.getElementById("quiz-take-description");
-  const nameSection = document.getElementById("quiz-name-section");
-  const quizForm = document.getElementById("quiz-take-form");
+  document.getElementById("quiz-take-title").textContent = escapeHtml(
+    quizData.title
+  );
+  document.getElementById("quiz-take-description").textContent = escapeHtml(
+    quizData.description || ""
+  );
+
+  document
+    .getElementById("quiz-name-section")
+    .classList.toggle("d-none", !needsName);
+  document
+    .getElementById("quiz-take-form")
+    .classList.toggle("d-none", needsName);
+
   const container = document.getElementById("quiz-questions-container");
-  const nameInput = document.getElementById("quiz-participant-name");
-
-  if (titleEl) titleEl.textContent = escapeHtml(quizData.title);
-  if (descEl) descEl.textContent = escapeHtml(quizData.description || "");
-
-  if (needsName) {
-    // Show name input, hide form
-    if (nameSection) nameSection.classList.remove("d-none");
-    if (quizForm) quizForm.classList.add("d-none");
-    if (nameInput) nameInput.focus();
-  } else {
-    // Hide name input, show form
-    if (nameSection) nameSection.classList.add("d-none");
-    if (quizForm) quizForm.classList.remove("d-none");
-  }
-
   if (container) {
     container.innerHTML = (quizData.questions || [])
       .map(
         (q) => `
       <div class="mb-3">
         <label class="form-label">${escapeHtml(q.question_text)}</label>
-        <input
-          type="text"
-          class="form-control quiz-answer-input"
-          data-question-id="${q.id}"
-          placeholder="Ditt svar..."
-          required
-        />
-      </div>
-    `
+        <input type="text" class="form-control quiz-answer-input" data-question-id="${
+          q.id
+        }" placeholder="Ditt svar..." required />
+      </div>`
       )
       .join("");
   }
 }
 
-// Show user results (my answers + answers to my quizzes)
-export async function showResults() {
-  const appArea = document.getElementById("app-area");
-  const quizListArea = document.getElementById("quiz-list-area");
-  const quizCreateArea = document.getElementById("quiz-create-area");
-  const quizTakeArea = document.getElementById("quiz-take-area");
-  const adminResultsArea = document.getElementById("admin-results-area");
-  const resultsArea = document.getElementById("results-area");
+function renderAnswers(containerId, answers, includeName = false) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
 
-  if (appArea) appArea.classList.remove("d-none");
-  if (quizListArea) quizListArea.classList.add("d-none");
-  if (quizCreateArea) quizCreateArea.classList.add("d-none");
-  if (quizTakeArea) quizTakeArea.classList.add("d-none");
-  if (adminResultsArea) adminResultsArea.classList.add("d-none");
-  if (resultsArea) resultsArea.classList.remove("d-none");
-
-  await loadMyResults();
-}
-
-// Load and display user's answers
-async function loadMyResults() {
-  const currentUser = getCurrentUser();
-  const myResultsContainer = document.getElementById("my-results-container");
-  const myQuizResultsCard = document.getElementById("my-quiz-results-card");
-  const myQuizResultsContainer = document.getElementById(
-    "my-quiz-results-container"
-  );
-
-  if (!myResultsContainer || !myQuizResultsContainer) return;
-
-  myResultsContainer.innerHTML = '<p class="text-muted">Laster...</p>';
-
-  // Fetch user's own answers
-  const result = await fetchMyAnswers();
-  if (result.error) {
-    myResultsContainer.innerHTML = `<p class="text-muted">Feil: ${escapeHtml(
-      result.error
-    )}</p>`;
-    if (myQuizResultsCard) myQuizResultsCard.classList.add("d-none");
+  if (!answers.length) {
+    container.innerHTML = '<p class="text-muted">Ingen svar ennå.</p>';
     return;
   }
 
-  const answers = result.answers;
-
-  if (answers.length === 0) {
-    myResultsContainer.innerHTML =
-      '<p class="text-muted">Du har ikke besvart noen quiz ennå.</p>';
-  } else {
-    // Group by quiz
-    const byQuiz = {};
-    answers.forEach((ans) => {
-      const quizTitle = ans.questions?.quizzes?.title || "Ukjent quiz";
-      const questionText = ans.questions?.question_text || "Ukjent spørsmål";
-      if (!byQuiz[quizTitle]) byQuiz[quizTitle] = [];
-      byQuiz[quizTitle].push({ ...ans, questionText });
+  const grouped = {};
+  answers.forEach((ans) => {
+    const title = ans.questions?.quizzes?.title || "Ukjent quiz";
+    const questionText = ans.questions?.question_text || "Ukjent spørsmål";
+    if (!grouped[title]) grouped[title] = [];
+    grouped[title].push({
+      ...ans,
+      questionText,
+      participantName: ans.participant_name,
     });
+  });
 
-    const html = Object.entries(byQuiz)
-      .map(
-        ([quizTitle, quizAnswers]) => `
+  container.innerHTML = Object.entries(grouped)
+    .map(
+      ([title, quizAnswers]) => `
       <div class="mb-3">
-        <h6 class="fw-semibold">${escapeHtml(quizTitle)}</h6>
+        <h6 class="fw-semibold">${escapeHtml(title)}</h6>
         <div class="table-responsive">
           <table class="table table-sm">
             <thead>
               <tr>
+                ${includeName ? "<th>Navn</th>" : ""}
                 <th>Spørsmål</th>
-                <th>Ditt svar</th>
+                <th>Svar</th>
                 <th>Sendt</th>
               </tr>
             </thead>
@@ -324,6 +214,13 @@ async function loadMyResults() {
                 .map(
                   (ans) => `
                 <tr>
+                  ${
+                    includeName
+                      ? `<td><small>${escapeHtml(
+                          ans.participantName || ans.user_id?.substring(0, 8)
+                        )}</small></td>`
+                      : ""
+                  }
                   <td><small>${escapeHtml(ans.questionText)}</small></td>
                   <td><small>${escapeHtml(ans.answer_text)}</small></td>
                   <td><small>${new Date(ans.submitted_at).toLocaleString(
@@ -338,346 +235,154 @@ async function loadMyResults() {
         </div>
       </div>
     `
-      )
-      .join("");
-
-    myResultsContainer.innerHTML = html;
-  }
-
-  // Fetch answers to user's quizzes (only shown if user created quizzes)
-  const allAnswersResult = await fetchAllAnswers();
-  if (!allAnswersResult.error && allAnswersResult.answers.length > 0) {
-    // Filter to only answers for quizzes created by this user
-    const myQuizAnswers = allAnswersResult.answers.filter(
-      (ans) => ans.questions?.quizzes?.created_by === currentUser?.id
-    );
-
-    if (myQuizAnswers.length > 0) {
-      if (myQuizResultsCard) myQuizResultsCard.classList.remove("d-none");
-
-      // Group by quiz
-      const byQuiz = {};
-      myQuizAnswers.forEach((ans) => {
-        const quizTitle = ans.questions?.quizzes?.title || "Ukjent quiz";
-        const questionText = ans.questions?.question_text || "Ukjent spørsmål";
-        const participantName =
-          ans.participant_name || ans.user_id.substring(0, 8);
-        if (!byQuiz[quizTitle]) byQuiz[quizTitle] = [];
-        byQuiz[quizTitle].push({ ...ans, questionText, participantName });
-      });
-
-      const html = Object.entries(byQuiz)
-        .map(
-          ([quizTitle, quizAnswers]) => `
-        <div class="mb-3">
-          <h6 class="fw-semibold">${escapeHtml(quizTitle)}</h6>
-          <div class="table-responsive">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Navn</th>
-                  <th>Spørsmål</th>
-                  <th>Svar</th>
-                  <th>Sendt</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${quizAnswers
-                  .map(
-                    (ans) => `
-                  <tr>
-                    <td><small>${escapeHtml(ans.participantName)}</small></td>
-                    <td><small>${escapeHtml(ans.questionText)}</small></td>
-                    <td><small>${escapeHtml(ans.answer_text)}</small></td>
-                    <td><small>${new Date(ans.submitted_at).toLocaleString(
-                      "no-NO"
-                    )}</small></td>
-                  </tr>
-                `
-                  )
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `
-        )
-        .join("");
-
-      myQuizResultsContainer.innerHTML = html;
-    } else {
-      if (myQuizResultsCard) myQuizResultsCard.classList.add("d-none");
-    }
-  } else {
-    if (myQuizResultsCard) myQuizResultsCard.classList.add("d-none");
-  }
-}
-
-// Show admin results
-export async function showAdminResults() {
-  const appArea = document.getElementById("app-area");
-  const quizListArea = document.getElementById("quiz-list-area");
-  const quizCreateArea = document.getElementById("quiz-create-area");
-  const quizTakeArea = document.getElementById("quiz-take-area");
-  const resultsArea = document.getElementById("results-area");
-  const adminResultsArea = document.getElementById("admin-results-area");
-
-  if (appArea) appArea.classList.remove("d-none");
-  if (quizListArea) quizListArea.classList.add("d-none");
-  if (quizCreateArea) quizCreateArea.classList.add("d-none");
-  if (quizTakeArea) quizTakeArea.classList.add("d-none");
-  if (resultsArea) resultsArea.classList.add("d-none");
-  if (adminResultsArea) adminResultsArea.classList.remove("d-none");
-
-  await loadAdminResults();
-}
-
-// Load and display admin results
-async function loadAdminResults() {
-  const container = document.getElementById("admin-results-container");
-  if (!container) return;
-
-  container.innerHTML = '<p class="text-muted">Laster...</p>';
-
-  const result = await fetchAllAnswers();
-  const answers = result.answers || [];
-
-  if (answers.length === 0) {
-    container.innerHTML = '<p class="text-muted">Ingen svar ennå.</p>';
-    return;
-  }
-
-  // Group answers by quiz
-  const byQuiz = {};
-  answers.forEach((ans) => {
-    const quizTitle = ans.questions?.quizzes?.title || "Ukjent quiz";
-    const questionText = ans.questions?.question_text || "Ukjent spørsmål";
-    if (!byQuiz[quizTitle]) byQuiz[quizTitle] = [];
-    byQuiz[quizTitle].push({ ...ans, questionText });
-  });
-
-  const html = Object.entries(byQuiz)
-    .map(
-      ([quizTitle, quizAnswers]) => `
-    <div class="mb-4">
-      <h5 class="fw-semibold">${escapeHtml(quizTitle)}</h5>
-      <div class="table-responsive">
-        <table class="table table-sm">
-          <thead>
-            <tr>
-              <th>Navn</th>
-              <th>Spørsmål</th>
-              <th>Svar</th>
-              <th>Sendt</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${quizAnswers
-              .map(
-                (ans) => `
-              <tr>
-                <td><small>${escapeHtml(
-                  ans.participant_name || ans.user_id.substring(0, 8)
-                )}</small></td>
-                <td><small>${escapeHtml(ans.questionText)}</small></td>
-                <td><small>${escapeHtml(ans.answer_text)}</small></td>
-                <td><small>${new Date(ans.submitted_at).toLocaleString(
-                  "no-NO"
-                )}</small></td>
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `
     )
     .join("");
-
-  container.innerHTML = html;
 }
 
-// Setup event listeners
+export async function showResults() {
+  toggleAreas(["app-area", "results-area"]);
+  const currentUser = getCurrentUser();
+
+  // My answers
+  const myAnswersResult = await fetchMyAnswers();
+  renderAnswers("my-results-container", myAnswersResult.answers || []);
+
+  // Answers to my quizzes
+  const myQuizResultsCard = document.getElementById("my-quiz-results-card");
+  const myQuizResultsContainer = document.getElementById(
+    "my-quiz-results-container"
+  );
+
+  const allAnswersResult = await fetchAllAnswers();
+  const myQuizAnswers = (allAnswersResult.answers || []).filter(
+    (ans) => ans.questions?.quizzes?.created_by === currentUser?.id
+  );
+
+  if (myQuizAnswers.length > 0) {
+    myQuizResultsCard?.classList.remove("d-none");
+    renderAnswers("my-quiz-results-container", myQuizAnswers, true);
+  } else {
+    myQuizResultsCard?.classList.add("d-none");
+  }
+}
+
+
+export async function showAdminResults() {
+  toggleAreas(["app-area", "admin-results-area"]);
+  const allAnswersResult = await fetchAllAnswers();
+  renderAnswers(
+    "admin-results-container",
+    allAnswersResult.answers || [],
+    true
+  );
+}
+
 export function setupQuizEventListeners() {
-  // Navigation
-  document.getElementById("nav-home")?.addEventListener("click", (e) => {
+  const clickHandler = (id, fn) =>
+    document.getElementById(id)?.addEventListener("click", fn);
+
+  clickHandler("nav-home", (e) => {
     e.preventDefault();
     showQuizList();
   });
-
-  document.getElementById("nav-quizzes")?.addEventListener("click", (e) => {
+  clickHandler("nav-quizzes", (e) => {
     e.preventDefault();
     showQuizList();
   });
-
-  // Nav email badge click - show results
-  const navUserBadge = document.getElementById("nav-user-badge");
-  navUserBadge?.addEventListener("click", (e) => {
-    const currentUser = getCurrentUser();
-    if (currentUser) {
+  clickHandler("nav-user-badge", (e) => {
+    if (getCurrentUser()) {
       e.preventDefault();
       showResults();
     }
   });
-
-  // Admin link
-  document.getElementById("nav-admin")?.addEventListener("click", (e) => {
+  clickHandler("nav-admin", (e) => {
     e.preventDefault();
     showAdminResults();
   });
-
-  // Results back button
-  document
-    .getElementById("results-back-btn")
-    ?.addEventListener("click", (e) => {
+  [
+    "results-back-btn",
+    "back-to-quizzes-btn",
+    "back-to-quizzes-btn2",
+    "cancel-create-btn",
+    "cancel-take-btn",
+  ].forEach((id) =>
+    clickHandler(id, (e) => {
       e.preventDefault();
       showQuizList();
-    });
-
-  document
-    .getElementById("logout-nav-btn")
-    ?.addEventListener("click", async (e) => {
-      e.preventDefault();
-      // Handled by auth module
-    });
-
-  // Quiz creation
-  document
-    .getElementById("create-quiz-btn")
-    ?.addEventListener("click", () => showQuizCreate());
-
-  document.getElementById("add-question-btn")?.addEventListener("click", () => {
+    })
+  );
+  clickHandler("create-quiz-btn", () => showQuizCreate());
+  clickHandler("add-question-btn", () => {
     addQuestionField();
     updateQuestionLabels();
   });
 
-  document
-    .getElementById("back-to-quizzes-btn")
-    ?.addEventListener("click", (e) => {
-      e.preventDefault();
-      showQuizList();
-    });
-
-  document
-    .getElementById("back-to-quizzes-btn2")
-    ?.addEventListener("click", (e) => {
-      e.preventDefault();
-      showQuizList();
-    });
-
-  document
-    .getElementById("cancel-create-btn")
-    ?.addEventListener("click", (e) => {
-      e.preventDefault();
-      showQuizList();
-    });
-
-  document.getElementById("cancel-take-btn")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showQuizList();
+  clickHandler("quiz-name-confirm-btn", () => {
+    const name = document.getElementById("quiz-participant-name")?.value.trim();
+    if (!name) return alert("Vennligst skriv inn ditt navn.");
+    localStorage.setItem(`quiz_${currentQuizId}_name`, name);
+    currentQuizParticipantName = name;
+    document.getElementById("quiz-name-section")?.classList.add("d-none");
+    document.getElementById("quiz-take-form")?.classList.remove("d-none");
   });
-  // Quiz participant name confirmation
-  document
-    .getElementById("quiz-name-confirm-btn")
-    ?.addEventListener("click", async (e) => {
-      e.preventDefault();
-      const nameInput = document.getElementById("quiz-participant-name");
-      const name = nameInput?.value.trim();
 
-      if (!name) {
-        alert("Vennligst skriv inn ditt navn.");
-        return;
-      }
-
-      // Store name in localStorage
-      localStorage.setItem(`quiz_${currentQuizId}_name`, name);
-      currentQuizParticipantName = name;
-
-      // Show quiz form
-      const nameSection = document.getElementById("quiz-name-section");
-      const quizForm = document.getElementById("quiz-take-form");
-      if (nameSection) nameSection.classList.add("d-none");
-      if (quizForm) quizForm.classList.remove("d-none");
-    });
-  // Quiz creation form
   document
     .getElementById("quiz-create-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
-
       const title = document.getElementById("quiz-title")?.value.trim();
       const description = document
         .getElementById("quiz-description")
         ?.value.trim();
       const questions = Array.from(document.querySelectorAll(".question-input"))
-        .map((input) => input.value.trim())
-        .filter((q) => q);
-
+        .map((i) => i.value.trim())
+        .filter(Boolean);
       const statusEl = document.getElementById("quiz-create-status");
-
-      if (!title) {
-        if (statusEl) statusEl.textContent = "Tittel er påkrevd.";
-        return;
-      }
-
-      if (questions.length === 0) {
-        if (statusEl) statusEl.textContent = "Minst ett spørsmål er påkrevd.";
-        return;
-      }
-
-      if (statusEl) statusEl.textContent = "Opprettet quiz...";
-
+      if (!title)
+        return statusEl && (statusEl.textContent = "Tittel er påkrevd.");
+      if (!questions.length)
+        return (
+          statusEl && (statusEl.textContent = "Minst ett spørsmål er påkrevd.")
+        );
+      statusEl && (statusEl.textContent = "Opprettet quiz...");
       const quiz = await createQuiz(title, description, questions);
-      if (quiz) {
-        if (statusEl) statusEl.textContent = "Quiz opprettet!";
-        setTimeout(() => showQuizList(), 1500);
-      } else {
-        if (statusEl) statusEl.textContent = "Feil ved opprettelse.";
-      }
+      statusEl &&
+        (statusEl.textContent = quiz
+          ? "Quiz opprettet!"
+          : "Feil ved opprettelse.");
+      if (quiz) setTimeout(showQuizList, 1500);
     });
 
-  // Quiz taking form
   document
     .getElementById("quiz-take-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
-
       const answers = {};
-      document.querySelectorAll(".quiz-answer-input").forEach((input) => {
-        const questionId = input.dataset.questionId;
-        const answerText = input.value.trim();
-        if (answerText) {
-          answers[questionId] = answerText;
-        }
+      document.querySelectorAll(".quiz-answer-input").forEach((i) => {
+        const qid = i.dataset.questionId;
+        const val = i.value.trim();
+        if (val) answers[qid] = val;
       });
-
       const statusEl = document.getElementById("quiz-take-status");
-
-      if (Object.keys(answers).length === 0) {
-        if (statusEl)
-          statusEl.textContent = "Vennligst svar på minst ett spørsmål.";
-        return;
-      }
-
-      if (statusEl) statusEl.textContent = "Sender svar...";
-
+      if (!Object.keys(answers).length)
+        return (
+          statusEl &&
+          (statusEl.textContent = "Vennligst svar på minst ett spørsmål.")
+        );
+      statusEl && (statusEl.textContent = "Sender svar...");
       const success = await submitAnswers(
         currentQuizId,
         answers,
         currentQuizParticipantName
       );
-      if (success) {
-        if (statusEl) statusEl.textContent = "Svar sendt!";
-        setTimeout(() => showQuizList(), 1500);
-      } else {
-        if (statusEl) statusEl.textContent = "Feil ved sending av svar.";
-      }
+      statusEl &&
+        (statusEl.textContent = success
+          ? "Svar sendt!"
+          : "Feil ved sending av svar.");
+      if (success) setTimeout(showQuizList, 1500);
     });
 }
 
-// Escape HTML
 function escapeHtml(text) {
   const map = {
     "&": "&amp;",
