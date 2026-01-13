@@ -198,7 +198,16 @@ function renderAnswers(containerId, answers, includeName = false) {
     .map(
       ([title, quizAnswers]) => `
       <div class="mb-3">
-        <h6 class="fw-semibold">${escapeHtml(title)}</h6>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="fw-semibold mb-0">${escapeHtml(title)}</h6>
+          ${
+            includeName
+              ? `<button class="btn btn-sm btn-outline-primary download-quiz-csv-btn" data-quiz-title="${escapeHtml(
+                  title
+                ).replace(/"/g, "&quot;")}">Last ned CSV</button>`
+              : ""
+          }
+        </div>
         <div class="table-responsive">
           <table class="table table-sm">
             <thead>
@@ -237,6 +246,25 @@ function renderAnswers(containerId, answers, includeName = false) {
     `
     )
     .join("");
+
+  // Add CSV download event listeners
+  if (includeName) {
+    document.querySelectorAll(".download-quiz-csv-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const quizTitle = btn.dataset.quizTitle;
+        const quizAnswers = grouped[quizTitle];
+
+        if (quizAnswers && quizAnswers.length > 0) {
+          const csvContent = answersToCSV(quizTitle, quizAnswers);
+          const filename = `${quizTitle.replace(
+            /[^a-z0-9æøå]/gi,
+            "_"
+          )}_svar.csv`;
+          downloadCSV(filename, csvContent);
+        }
+      });
+    });
+  }
 }
 
 export async function showResults() {
@@ -265,7 +293,6 @@ export async function showResults() {
     myQuizResultsCard?.classList.add("d-none");
   }
 }
-
 
 export async function showAdminResults() {
   toggleAreas(["app-area", "admin-results-area"]);
@@ -381,6 +408,41 @@ export function setupQuizEventListeners() {
           : "Feil ved sending av svar.");
       if (success) setTimeout(showQuizList, 1500);
     });
+}
+
+// Convert answers to CSV format
+function answersToCSV(quizTitle, answers) {
+  // CSV header
+  const headers = ["Navn", "Spørsmål", "Svar", "Sendt"];
+  const csvRows = [headers.join(",")];
+
+  // Add each answer as a row
+  answers.forEach((ans) => {
+    const row = [
+      `"${(ans.participantName || "").replace(/"/g, '""')}"`,
+      `"${(ans.questionText || "").replace(/"/g, '""')}"`,
+      `"${(ans.answer_text || "").replace(/"/g, '""')}"`,
+      `"${new Date(ans.submitted_at).toLocaleString("no-NO")}"`,
+    ];
+    csvRows.push(row.join(","));
+  });
+
+  return csvRows.join("\n");
+}
+
+// Download CSV file
+function downloadCSV(filename, csvContent) {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function escapeHtml(text) {
