@@ -91,7 +91,7 @@ export async function createQuiz(title, description, questions) {
 }
 
 // Submit answers to a quiz
-export async function submitAnswers(quizId, answers) {
+export async function submitAnswers(quizId, answers, participantName = null) {
   const currentUser = getCurrentUser();
   if (!currentUser) return false;
 
@@ -101,6 +101,7 @@ export async function submitAnswers(quizId, answers) {
       question_id: parseInt(questionId),
       user_id: currentUser.id,
       answer_text: answerText,
+      participant_name: participantName || null,
       submitted_at: new Date().toISOString(),
     })
   );
@@ -117,8 +118,44 @@ export async function submitAnswers(quizId, answers) {
 
 // Fetch all answers (admin only)
 export async function fetchAllAnswers() {
-  const currentRole = getCurrentRole();
-  if (currentRole !== "admin") return [];
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    return { answers: [], error: "Ikke innlogget." };
+  }
+
+  // Note: RLS decides what the user is allowed to see.
+  // With the policies in QUIZ_SETUP.md this returns:
+  // - the user's own answers
+  // - answers to quizzes they created
+  const { data, error } = await supabase
+    .from("answers")
+    .select(
+      `
+      id,
+      question_id,
+      user_id,
+      answer_text,
+      participant_name,
+      submitted_at,
+      questions (id, question_text, quiz_id, quizzes (id, title, created_by))
+    `
+    )
+    .order("submitted_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching answers:", error);
+    return { answers: [], error: error.message || "Ukjent feil." };
+  }
+
+  return { answers: data || [], error: null };
+}
+
+// Fetch only the current user's own answers
+export async function fetchMyAnswers() {
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    return { answers: [], error: "Ikke innlogget." };
+  }
 
   const { data, error } = await supabase
     .from("answers")
@@ -128,18 +165,20 @@ export async function fetchAllAnswers() {
       question_id,
       user_id,
       answer_text,
+      participant_name,
       submitted_at,
-      questions (id, question_text, quiz_id, quizzes (id, title))
+      questions (id, question_text, quiz_id, quizzes (id, title, created_by))
     `
     )
+    .eq("user_id", currentUser.id)
     .order("submitted_at", { ascending: false });
 
   if (error) {
-    console.error("Error fetching answers:", error);
-    return [];
+    console.error("Error fetching my answers:", error);
+    return { answers: [], error: error.message || "Ukjent feil." };
   }
 
-  return data || [];
+  return { answers: data || [], error: null };
 }
 
 // Fetch answers for a specific quiz (admin only)

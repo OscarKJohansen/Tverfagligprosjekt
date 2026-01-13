@@ -186,7 +186,35 @@
             <div class="card-body">
               <h2 id="quiz-take-title" class="h4 fw-semibold mb-2"></h2>
               <p id="quiz-take-description" class="text-muted small mb-3"></p>
-              <form id="quiz-take-form" novalidate>
+
+              <!-- Name input (shown only on first attempt) -->
+              <div id="quiz-name-section" class="d-none mb-3">
+                <label for="quiz-participant-name" class="form-label"
+                  >Ditt navn</label
+                >
+                <p class="text-muted small mb-2">
+                  Du kan bare skrive navn én gang per quiz. Velg navn med omhu!
+                </p>
+                <div class="input-group">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="quiz-participant-name"
+                    placeholder="Skriv ditt navn..."
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    id="quiz-name-confirm-btn"
+                  >
+                    Bekreft
+                  </button>
+                </div>
+              </div>
+
+              <!-- Quiz form (shown after name is confirmed) -->
+              <form id="quiz-take-form" novalidate class="d-none">
                 <div id="quiz-questions-container"></div>
                 <div class="d-flex gap-2">
                   <button type="submit" class="btn btn-primary">
@@ -202,6 +230,30 @@
                 </div>
               </form>
               <div id="quiz-take-status" class="mt-3 text-muted small"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Results (My answers + answers to my quizzes) -->
+        <section id="results-area" class="d-none">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h4 fw-semibold m-0">Resultater</h2>
+            <button id="results-back-btn" class="btn btn-secondary">
+              Tilbake
+            </button>
+          </div>
+
+          <div class="card card-elev mb-3">
+            <div class="card-body">
+              <h3 class="h5 fw-semibold mb-2">Mine svar</h3>
+              <div id="my-results-container"></div>
+            </div>
+          </div>
+
+          <div id="my-quiz-results-card" class="card card-elev d-none">
+            <div class="card-body">
+              <h3 class="h5 fw-semibold mb-2">Svar på mine quiz</h3>
+              <div id="my-quiz-results-container"></div>
             </div>
           </div>
         </section>

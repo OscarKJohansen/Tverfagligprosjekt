@@ -5,9 +5,11 @@ import {
   createQuiz,
   submitAnswers,
   fetchAllAnswers,
+  fetchMyAnswers,
 } from "./quizzes.js";
 
 let currentQuizId = null;
+let currentQuizParticipantName = null;
 
 // Update navigation based on auth state
 export function updateQuizNav() {
@@ -43,12 +45,14 @@ export async function showQuizList() {
   const quizCreateArea = document.getElementById("quiz-create-area");
   const quizTakeArea = document.getElementById("quiz-take-area");
   const adminResultsArea = document.getElementById("admin-results-area");
+  const resultsArea = document.getElementById("results-area");
 
   if (appArea) appArea.classList.remove("d-none");
   if (quizListArea) quizListArea.classList.remove("d-none");
   if (quizCreateArea) quizCreateArea.classList.add("d-none");
   if (quizTakeArea) quizTakeArea.classList.add("d-none");
   if (adminResultsArea) adminResultsArea.classList.add("d-none");
+  if (resultsArea) resultsArea.classList.add("d-none");
 
   await loadQuizzes();
 }
@@ -105,12 +109,14 @@ export function showQuizCreate() {
   const quizCreateArea = document.getElementById("quiz-create-area");
   const quizTakeArea = document.getElementById("quiz-take-area");
   const adminResultsArea = document.getElementById("admin-results-area");
+  const resultsArea = document.getElementById("results-area");
 
   if (appArea) appArea.classList.remove("d-none");
   if (quizListArea) quizListArea.classList.add("d-none");
   if (quizCreateArea) quizCreateArea.classList.remove("d-none");
   if (quizTakeArea) quizTakeArea.classList.add("d-none");
   if (adminResultsArea) adminResultsArea.classList.add("d-none");
+  if (resultsArea) resultsArea.classList.add("d-none");
 
   initQuestionFields();
 }
@@ -172,23 +178,29 @@ function updateQuestionLabels() {
 async function showQuizTake(quizId) {
   currentQuizId = quizId;
 
+  // Check if name is already stored for this quiz
+  const storedName = localStorage.getItem(`quiz_${quizId}_name`);
+  currentQuizParticipantName = storedName;
+
   const appArea = document.getElementById("app-area");
   const quizListArea = document.getElementById("quiz-list-area");
   const quizCreateArea = document.getElementById("quiz-create-area");
   const quizTakeArea = document.getElementById("quiz-take-area");
   const adminResultsArea = document.getElementById("admin-results-area");
+  const resultsArea = document.getElementById("results-area");
 
   if (appArea) appArea.classList.remove("d-none");
   if (quizListArea) quizListArea.classList.add("d-none");
   if (quizCreateArea) quizCreateArea.classList.add("d-none");
   if (quizTakeArea) quizTakeArea.classList.remove("d-none");
   if (adminResultsArea) adminResultsArea.classList.add("d-none");
+  if (resultsArea) resultsArea.classList.add("d-none");
 
-  await loadQuizForTaking(quizId);
+  await loadQuizForTaking(quizId, !storedName); // Pass true if name needs to be entered
 }
 
 // Load quiz for taking
-async function loadQuizForTaking(quizId) {
+async function loadQuizForTaking(quizId, needsName = false) {
   const quizData = await fetchQuizWithQuestions(quizId);
   if (!quizData) {
     alert("Kunne ikke laste quiz.");
@@ -197,10 +209,24 @@ async function loadQuizForTaking(quizId) {
 
   const titleEl = document.getElementById("quiz-take-title");
   const descEl = document.getElementById("quiz-take-description");
+  const nameSection = document.getElementById("quiz-name-section");
+  const quizForm = document.getElementById("quiz-take-form");
   const container = document.getElementById("quiz-questions-container");
+  const nameInput = document.getElementById("quiz-participant-name");
 
   if (titleEl) titleEl.textContent = escapeHtml(quizData.title);
   if (descEl) descEl.textContent = escapeHtml(quizData.description || "");
+
+  if (needsName) {
+    // Show name input, hide form
+    if (nameSection) nameSection.classList.remove("d-none");
+    if (quizForm) quizForm.classList.add("d-none");
+    if (nameInput) nameInput.focus();
+  } else {
+    // Hide name input, show form
+    if (nameSection) nameSection.classList.add("d-none");
+    if (quizForm) quizForm.classList.remove("d-none");
+  }
 
   if (container) {
     container.innerHTML = (quizData.questions || [])
@@ -222,18 +248,185 @@ async function loadQuizForTaking(quizId) {
   }
 }
 
+// Show user results (my answers + answers to my quizzes)
+export async function showResults() {
+  const appArea = document.getElementById("app-area");
+  const quizListArea = document.getElementById("quiz-list-area");
+  const quizCreateArea = document.getElementById("quiz-create-area");
+  const quizTakeArea = document.getElementById("quiz-take-area");
+  const adminResultsArea = document.getElementById("admin-results-area");
+  const resultsArea = document.getElementById("results-area");
+
+  if (appArea) appArea.classList.remove("d-none");
+  if (quizListArea) quizListArea.classList.add("d-none");
+  if (quizCreateArea) quizCreateArea.classList.add("d-none");
+  if (quizTakeArea) quizTakeArea.classList.add("d-none");
+  if (adminResultsArea) adminResultsArea.classList.add("d-none");
+  if (resultsArea) resultsArea.classList.remove("d-none");
+
+  await loadMyResults();
+}
+
+// Load and display user's answers
+async function loadMyResults() {
+  const currentUser = getCurrentUser();
+  const myResultsContainer = document.getElementById("my-results-container");
+  const myQuizResultsCard = document.getElementById("my-quiz-results-card");
+  const myQuizResultsContainer = document.getElementById(
+    "my-quiz-results-container"
+  );
+
+  if (!myResultsContainer || !myQuizResultsContainer) return;
+
+  myResultsContainer.innerHTML = '<p class="text-muted">Laster...</p>';
+
+  // Fetch user's own answers
+  const result = await fetchMyAnswers();
+  if (result.error) {
+    myResultsContainer.innerHTML = `<p class="text-muted">Feil: ${escapeHtml(
+      result.error
+    )}</p>`;
+    if (myQuizResultsCard) myQuizResultsCard.classList.add("d-none");
+    return;
+  }
+
+  const answers = result.answers;
+
+  if (answers.length === 0) {
+    myResultsContainer.innerHTML =
+      '<p class="text-muted">Du har ikke besvart noen quiz ennå.</p>';
+  } else {
+    // Group by quiz
+    const byQuiz = {};
+    answers.forEach((ans) => {
+      const quizTitle = ans.questions?.quizzes?.title || "Ukjent quiz";
+      const questionText = ans.questions?.question_text || "Ukjent spørsmål";
+      if (!byQuiz[quizTitle]) byQuiz[quizTitle] = [];
+      byQuiz[quizTitle].push({ ...ans, questionText });
+    });
+
+    const html = Object.entries(byQuiz)
+      .map(
+        ([quizTitle, quizAnswers]) => `
+      <div class="mb-3">
+        <h6 class="fw-semibold">${escapeHtml(quizTitle)}</h6>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Spørsmål</th>
+                <th>Ditt svar</th>
+                <th>Sendt</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${quizAnswers
+                .map(
+                  (ans) => `
+                <tr>
+                  <td><small>${escapeHtml(ans.questionText)}</small></td>
+                  <td><small>${escapeHtml(ans.answer_text)}</small></td>
+                  <td><small>${new Date(ans.submitted_at).toLocaleString(
+                    "no-NO"
+                  )}</small></td>
+                </tr>
+              `
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `
+      )
+      .join("");
+
+    myResultsContainer.innerHTML = html;
+  }
+
+  // Fetch answers to user's quizzes (only shown if user created quizzes)
+  const allAnswersResult = await fetchAllAnswers();
+  if (!allAnswersResult.error && allAnswersResult.answers.length > 0) {
+    // Filter to only answers for quizzes created by this user
+    const myQuizAnswers = allAnswersResult.answers.filter(
+      (ans) => ans.questions?.quizzes?.created_by === currentUser?.id
+    );
+
+    if (myQuizAnswers.length > 0) {
+      if (myQuizResultsCard) myQuizResultsCard.classList.remove("d-none");
+
+      // Group by quiz
+      const byQuiz = {};
+      myQuizAnswers.forEach((ans) => {
+        const quizTitle = ans.questions?.quizzes?.title || "Ukjent quiz";
+        const questionText = ans.questions?.question_text || "Ukjent spørsmål";
+        const participantName =
+          ans.participant_name || ans.user_id.substring(0, 8);
+        if (!byQuiz[quizTitle]) byQuiz[quizTitle] = [];
+        byQuiz[quizTitle].push({ ...ans, questionText, participantName });
+      });
+
+      const html = Object.entries(byQuiz)
+        .map(
+          ([quizTitle, quizAnswers]) => `
+        <div class="mb-3">
+          <h6 class="fw-semibold">${escapeHtml(quizTitle)}</h6>
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Navn</th>
+                  <th>Spørsmål</th>
+                  <th>Svar</th>
+                  <th>Sendt</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${quizAnswers
+                  .map(
+                    (ans) => `
+                  <tr>
+                    <td><small>${escapeHtml(ans.participantName)}</small></td>
+                    <td><small>${escapeHtml(ans.questionText)}</small></td>
+                    <td><small>${escapeHtml(ans.answer_text)}</small></td>
+                    <td><small>${new Date(ans.submitted_at).toLocaleString(
+                      "no-NO"
+                    )}</small></td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `
+        )
+        .join("");
+
+      myQuizResultsContainer.innerHTML = html;
+    } else {
+      if (myQuizResultsCard) myQuizResultsCard.classList.add("d-none");
+    }
+  } else {
+    if (myQuizResultsCard) myQuizResultsCard.classList.add("d-none");
+  }
+}
+
 // Show admin results
 export async function showAdminResults() {
   const appArea = document.getElementById("app-area");
   const quizListArea = document.getElementById("quiz-list-area");
   const quizCreateArea = document.getElementById("quiz-create-area");
   const quizTakeArea = document.getElementById("quiz-take-area");
+  const resultsArea = document.getElementById("results-area");
   const adminResultsArea = document.getElementById("admin-results-area");
 
   if (appArea) appArea.classList.remove("d-none");
   if (quizListArea) quizListArea.classList.add("d-none");
   if (quizCreateArea) quizCreateArea.classList.add("d-none");
   if (quizTakeArea) quizTakeArea.classList.add("d-none");
+  if (resultsArea) resultsArea.classList.add("d-none");
   if (adminResultsArea) adminResultsArea.classList.remove("d-none");
 
   await loadAdminResults();
@@ -246,7 +439,8 @@ async function loadAdminResults() {
 
   container.innerHTML = '<p class="text-muted">Laster...</p>';
 
-  const answers = await fetchAllAnswers();
+  const result = await fetchAllAnswers();
+  const answers = result.answers || [];
 
   if (answers.length === 0) {
     container.innerHTML = '<p class="text-muted">Ingen svar ennå.</p>';
@@ -271,7 +465,7 @@ async function loadAdminResults() {
         <table class="table table-sm">
           <thead>
             <tr>
-              <th>Bruker ID</th>
+              <th>Navn</th>
               <th>Spørsmål</th>
               <th>Svar</th>
               <th>Sendt</th>
@@ -283,7 +477,7 @@ async function loadAdminResults() {
                 (ans) => `
               <tr>
                 <td><small>${escapeHtml(
-                  ans.user_id.substring(0, 8)
+                  ans.participant_name || ans.user_id.substring(0, 8)
                 )}</small></td>
                 <td><small>${escapeHtml(ans.questionText)}</small></td>
                 <td><small>${escapeHtml(ans.answer_text)}</small></td>
@@ -318,10 +512,29 @@ export function setupQuizEventListeners() {
     showQuizList();
   });
 
+  // Nav email badge click - show results
+  const navUserBadge = document.getElementById("nav-user-badge");
+  navUserBadge?.addEventListener("click", (e) => {
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      e.preventDefault();
+      showResults();
+    }
+  });
+
+  // Admin link
   document.getElementById("nav-admin")?.addEventListener("click", (e) => {
     e.preventDefault();
     showAdminResults();
   });
+
+  // Results back button
+  document
+    .getElementById("results-back-btn")
+    ?.addEventListener("click", (e) => {
+      e.preventDefault();
+      showQuizList();
+    });
 
   document
     .getElementById("logout-nav-btn")
@@ -365,7 +578,29 @@ export function setupQuizEventListeners() {
     e.preventDefault();
     showQuizList();
   });
+  // Quiz participant name confirmation
+  document
+    .getElementById("quiz-name-confirm-btn")
+    ?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const nameInput = document.getElementById("quiz-participant-name");
+      const name = nameInput?.value.trim();
 
+      if (!name) {
+        alert("Vennligst skriv inn ditt navn.");
+        return;
+      }
+
+      // Store name in localStorage
+      localStorage.setItem(`quiz_${currentQuizId}_name`, name);
+      currentQuizParticipantName = name;
+
+      // Show quiz form
+      const nameSection = document.getElementById("quiz-name-section");
+      const quizForm = document.getElementById("quiz-take-form");
+      if (nameSection) nameSection.classList.add("d-none");
+      if (quizForm) quizForm.classList.remove("d-none");
+    });
   // Quiz creation form
   document
     .getElementById("quiz-create-form")
@@ -428,7 +663,11 @@ export function setupQuizEventListeners() {
 
       if (statusEl) statusEl.textContent = "Sender svar...";
 
-      const success = await submitAnswers(currentQuizId, answers);
+      const success = await submitAnswers(
+        currentQuizId,
+        answers,
+        currentQuizParticipantName
+      );
       if (success) {
         if (statusEl) statusEl.textContent = "Svar sendt!";
         setTimeout(() => showQuizList(), 1500);
