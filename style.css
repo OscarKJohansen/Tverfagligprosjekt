@@ -25,6 +25,12 @@ body {
   max-width: 1080px;
 }
 
+/* Header */
+header {
+  background: var(--card) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
 /* Headings */
 h1.display-6 {
   letter-spacing: 0.2px;
@@ -75,8 +81,25 @@ h1.display-6 {
   color: var(--primary-600);
   border-color: var(--primary-600);
 }
+.btn-outline-danger {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+.btn-outline-danger:hover {
+  color: #fff;
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
 .btn-rounded {
   border-radius: 999px;
+}
+.btn-secondary {
+  background-color: var(--muted);
+  border-color: var(--muted);
+}
+.btn-secondary:hover {
+  background-color: #4a5568;
+  border-color: #4a5568;
 }
 
 /* Inputs */
@@ -100,4 +123,26 @@ h1.display-6 {
 /* Spacing tweaks */
 #auth-area .card-body {
   padding: 1.25rem 1.25rem;
+}
+
+/* Table */
+.table {
+  font-size: 0.875rem;
+}
+.table thead {
+  background-color: #f8f9fa;
+}
+.table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Question input groups */
+.input-group .btn-outline-danger {
+  border-color: var(--border);
+}
+
+/* Nav dropdown */
+.dropdown-menu {
+  border: 1px solid var(--border);
+  box-shadow: 0 0.25rem 0.8rem rgba(20, 40, 80, 0.06);
 }

@@ -17,24 +17,51 @@
     ></script>
   </head>
   <body>
+    <!-- Navigation -->
     <nav class="navbar navbar-expand-md bg-white border-bottom">
       <div class="container">
-        <span class="navbar-brand">Oscar Kvalo Johansen</span>
-        <div class="ms-auto">
-          <span id="user-badge" class="badge rounded-pill text-bg-light me-2">
-            Gjest
-          </span>
-          <span
-            id="role-badge"
-            class="badge rounded-pill text-bg-secondary d-none"
-          >
-            Bruker
-          </span>
+        <a class="navbar-brand" href="#" id="nav-home">Oscar Kvalo Johansen</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <div class="navbar-nav ms-auto">
+            <a class="nav-link" href="#" id="nav-quizzes">Quiz</a>
+            <a class="nav-link d-none" href="#" id="nav-admin">Admin</a>
+            <div class="nav-item dropdown">
+              <a
+                class="nav-link dropdown-toggle"
+                href="#"
+                role="button"
+                data-bs-toggle="dropdown"
+              >
+                <span id="nav-user-badge">Gjest</span>
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li id="logout-nav-btn" class="d-none">
+                  <button class="dropdown-item">Logg ut</button>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </nav>
 
+    <!-- Header -->
+    <header class="py-3 bg-light border-bottom">
+      <div class="container">
+        <h1 class="h3 text-center m-0">Oscar Kvalø Johansen</h1>
+      </div>
+    </header>
+
     <main class="container my-4">
+      <!-- Login Area -->
       <section id="auth-area" class="mb-4">
         <div class="card card-elev">
           <div class="card-body">
@@ -73,33 +100,119 @@
         </div>
       </section>
 
-      <section id="account-area" class="d-none">
-        <div class="card card-elev">
-          <div class="card-body">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-              <h2 class="h5 fw-semibold mb-0">Konto</h2>
-              <span id="account-role" class="badge rounded-pill text-bg-light">
-                —
-              </span>
+      <!-- App Area (shown when logged in) -->
+      <section id="app-area" class="d-none">
+        <!-- Quiz List -->
+        <section id="quiz-list-area" class="d-none">
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <h2 class="h4 fw-semibold">Quiz</h2>
             </div>
-            <div class="mb-3">
-              <small class="text-muted">E-post</small>
-              <div id="account-email" class="fw-semibold text-break">—</div>
-            </div>
-            <div class="d-flex gap-2">
-              <button id="logout-btn" class="btn btn-outline-danger">
-                Logg ut
-              </button>
-              <button
-                id="refresh-session-btn"
-                class="btn btn-outline-secondary"
-              >
-                Oppdater status
+            <div class="col-md-6 text-end">
+              <button id="create-quiz-btn" class="btn btn-primary d-none">
+                Opprett quiz
               </button>
             </div>
-            <div id="account-status" class="mt-3 text-muted small"></div>
           </div>
-        </div>
+          <div id="quiz-list" class="row g-3">
+            <!-- Quizzes loaded here -->
+          </div>
+        </section>
+
+        <!-- Quiz Creation Form -->
+        <section id="quiz-create-area" class="d-none">
+          <div class="mb-3">
+            <button id="back-to-quizzes-btn" class="btn btn-secondary">
+              Tilbake
+            </button>
+          </div>
+          <div class="card card-elev">
+            <div class="card-body">
+              <h2 class="h4 fw-semibold mb-3">Opprett ny quiz</h2>
+              <form id="quiz-create-form" novalidate>
+                <div class="mb-3">
+                  <label for="quiz-title" class="form-label">Tittel</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="quiz-title"
+                    required
+                  />
+                </div>
+                <div class="mb-3">
+                  <label for="quiz-description" class="form-label">
+                    Beskrivelse
+                  </label>
+                  <textarea
+                    class="form-control"
+                    id="quiz-description"
+                    rows="3"
+                  ></textarea>
+                </div>
+                <div id="questions-container" class="mb-3"></div>
+                <button
+                  type="button"
+                  id="add-question-btn"
+                  class="btn btn-secondary mb-3"
+                >
+                  Legg til spørsmål
+                </button>
+                <div class="d-flex gap-2">
+                  <button type="submit" class="btn btn-primary">
+                    Publiser quiz
+                  </button>
+                  <button
+                    type="button"
+                    id="cancel-create-btn"
+                    class="btn btn-secondary"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </form>
+              <div id="quiz-create-status" class="mt-3 text-muted small"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Quiz Taking Area -->
+        <section id="quiz-take-area" class="d-none">
+          <div class="mb-3">
+            <button id="back-to-quizzes-btn2" class="btn btn-secondary">
+              Tilbake
+            </button>
+          </div>
+          <div class="card card-elev">
+            <div class="card-body">
+              <h2 id="quiz-take-title" class="h4 fw-semibold mb-2"></h2>
+              <p id="quiz-take-description" class="text-muted small mb-3"></p>
+              <form id="quiz-take-form" novalidate>
+                <div id="quiz-questions-container"></div>
+                <div class="d-flex gap-2">
+                  <button type="submit" class="btn btn-primary">
+                    Send svar
+                  </button>
+                  <button
+                    type="button"
+                    id="cancel-take-btn"
+                    class="btn btn-secondary"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </form>
+              <div id="quiz-take-status" class="mt-3 text-muted small"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Admin Results -->
+        <section id="admin-results-area" class="d-none">
+          <h2 class="h4 fw-semibold mb-3">Svar fra brukere</h2>
+          <div id="admin-results-container">
+            <!-- Results table loaded here -->
+          </div>
+        </section>
       </section>
     </main>
 

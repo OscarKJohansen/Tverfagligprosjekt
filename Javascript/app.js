@@ -5,11 +5,14 @@ import {
   handleLogout,
 } from "./auth.js";
 import { getCurrentUser, setCurrentUser } from "./state.js";
-import { updateAuthUI } from "./ui.js";
+import {
+  updateQuizNav,
+  showQuizList,
+  setupQuizEventListeners,
+} from "./quiz-ui.js";
 
 const loginForm = document.getElementById("login-form");
 const loginStatusEl = document.getElementById("login-status");
-const accountStatusEl = document.getElementById("account-status");
 
 loginForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -74,49 +77,48 @@ loginForm?.addEventListener("submit", async (e) => {
 
   setCurrentUser(signInData.user);
   await loadProfileRole();
-  updateAuthUI();
+  updateUI();
   if (loginStatusEl) loginStatusEl.textContent = "Innlogging vellykket.";
 });
 
-document.getElementById("logout-btn")?.addEventListener("click", async () => {
-  await handleLogout();
-  updateAuthUI();
-  if (accountStatusEl) accountStatusEl.textContent = "Du er logget ut.";
-  if (loginStatusEl) loginStatusEl.textContent = "Ikke innlogget.";
-});
-
+// Logout handler
 document
-  .getElementById("refresh-session-btn")
+  .getElementById("logout-nav-btn")
   ?.addEventListener("click", async () => {
-    if (accountStatusEl) accountStatusEl.textContent = "Oppdaterer status...";
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      if (accountStatusEl)
-        accountStatusEl.textContent = "Kunne ikke hente status.";
-      return;
-    }
-
-    setCurrentUser(data?.user ?? null);
-    if (data?.user) {
-      await loadProfileRole();
-      if (accountStatusEl) accountStatusEl.textContent = "Status oppdatert.";
-    } else if (accountStatusEl) {
-      accountStatusEl.textContent = "Ikke innlogget.";
-    }
-
-    updateAuthUI();
+    await handleLogout();
+    updateUI();
   });
 
+// Update UI based on auth state
+function updateUI() {
+  const authArea = document.getElementById("auth-area");
+  const appArea = document.getElementById("app-area");
+  const currentUser = getCurrentUser();
+
+  updateQuizNav();
+
+  if (currentUser) {
+    authArea.classList.add("d-none");
+    appArea.classList.remove("d-none");
+    showQuizList();
+  } else {
+    authArea.classList.remove("d-none");
+    appArea.classList.add("d-none");
+  }
+}
+
+// Initialize on page load
 ensureAuthOnLoad().then(() => {
-  updateAuthUI();
+  updateUI();
+  setupQuizEventListeners();
+
   if (getCurrentUser()) {
     if (loginStatusEl) loginStatusEl.textContent = "Innlogget.";
   }
 });
 
-// Håndterer innlogging ved å ta e-post og passord fra skjemaet og logge inn med Supabase. Hvis brukeren ikke finnes, blir den opprettet. Viser meldinger om hva som skjer.
-// Sjekker om e-posten er bekreftet, og logger brukeren ut hvis den ikke er det.
-// Lagrer den innloggede brukeren lokalt, henter brukerrollen og oppdaterer grensesnittet.
-// Knapper:
-// Logg ut: Logger ut brukeren og skjuler kontodelen.
-// Oppdater status: Sjekker om brukeren er innlogget, oppdaterer rollen og viser enkel status (innlogget, ikke innlogget eller feil).
+// Listen for auth changes
+supabase.auth.onAuthStateChange((_event, session) => {
+  setCurrentUser(session?.user ?? null);
+  updateUI();
+});
