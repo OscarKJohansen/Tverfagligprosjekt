@@ -5,11 +5,6 @@ import {
   handleLogout,
 } from "./auth.js";
 import { getCurrentUser, setCurrentUser } from "./state.js";
-import {
-  updateQuizNav,
-  showQuizList,
-  setupQuizEventListeners,
-} from "./quiz-ui.js";
 
 const loginForm = document.getElementById("login-form");
 const loginStatusEl = document.getElementById("login-status");
@@ -77,48 +72,28 @@ loginForm?.addEventListener("submit", async (e) => {
 
   setCurrentUser(signInData.user);
   await loadProfileRole();
-  updateUI();
   if (loginStatusEl) loginStatusEl.textContent = "Innlogging vellykket.";
+
+  // Redirect to quiz page
+  setTimeout(() => {
+    window.location.href = "./quiz.html";
+  }, 1000);
 });
-
-// Logout handler
-document
-  .getElementById("logout-nav-btn")
-  ?.addEventListener("click", async () => {
-    await handleLogout();
-    updateUI();
-  });
-
-// Update UI based on auth state
-function updateUI() {
-  const authArea = document.getElementById("auth-area");
-  const appArea = document.getElementById("app-area");
-  const currentUser = getCurrentUser();
-
-  updateQuizNav();
-
-  if (currentUser) {
-    authArea.classList.add("d-none");
-    appArea.classList.remove("d-none");
-    showQuizList();
-  } else {
-    authArea.classList.remove("d-none");
-    appArea.classList.add("d-none");
-  }
-}
 
 // Initialize on page load
 ensureAuthOnLoad().then(() => {
-  updateUI();
-  setupQuizEventListeners();
-
-  if (getCurrentUser()) {
-    if (loginStatusEl) loginStatusEl.textContent = "Innlogget.";
+  const currentUser = getCurrentUser();
+  if (currentUser) {
+    // Already logged in, redirect to quiz
+    window.location.href = "./quiz.html";
   }
+  if (loginStatusEl) loginStatusEl.textContent = "";
 });
 
 // Listen for auth changes
 supabase.auth.onAuthStateChange((_event, session) => {
   setCurrentUser(session?.user ?? null);
-  updateUI();
+  if (session?.user) {
+    window.location.href = "./quiz.html";
+  }
 });
