@@ -40,9 +40,49 @@ export async function fetchQuizWithQuestions(quizId) {
     return quiz;
   }
 
+  // Fetch choices for all questions (in case question_type wasn't set properly)
+  // We'll check for choices for any question and use that to determine the type
+  const allQuestionIds = (questions || []).map((q) => q.id);
+  console.log("All question IDs:", allQuestionIds);
+  console.log("Questions from DB:", questions);
+
+  let choicesMap = {};
+  if (allQuestionIds.length > 0) {
+    const { data: choices, error: choicesError } = await supabase
+      .from("question_choices")
+      .select("*")
+      .in("question_id", allQuestionIds)
+      .order("id", { ascending: true });
+
+    console.log("Choices from DB:", choices);
+    console.log("Choices error:", choicesError);
+
+    if (choicesError) {
+      console.error("Error fetching choices:", choicesError);
+    } else {
+      // Group choices by question_id
+      (choices || []).forEach((choice) => {
+        if (!choicesMap[choice.question_id]) {
+          choicesMap[choice.question_id] = [];
+        }
+        choicesMap[choice.question_id].push(choice);
+      });
+    }
+  }
+
+  console.log("Choices map:", choicesMap);
+
+  // Attach choices to their respective questions
+  const questionsWithChoices = (questions || []).map((q) => ({
+    ...q,
+    choices: choicesMap[q.id] || [],
+  }));
+
+  console.log("Questions with choices:", questionsWithChoices);
+
   return {
     ...quiz,
-    questions: questions || [],
+    questions: questionsWithChoices,
   };
 }
 
@@ -72,18 +112,60 @@ export async function createQuiz(title, description, questions) {
 
   // Create questions
   if (questions && questions.length > 0) {
-    const questionsToInsert = questions.map((q, index) => ({
-      quiz_id: quiz.id,
-      question_text: q,
-      created_at: new Date().toISOString(),
-    }));
+    // questions is now an array of objects: { text, type, choices: [{text, isCorrect}] }
+    console.log("Creating questions:", questions);
 
-    const { error: questionsError } = await supabase
-      .from("questions")
-      .insert(questionsToInsert);
+    for (const q of questions) {
+      console.log("Processing question:", q);
 
-    if (questionsError) {
-      console.error("Error creating questions:", questionsError);
+      const questionData = {
+        quiz_id: quiz.id,
+        question_text: typeof q === "string" ? q : q.text,
+        question_type: typeof q === "string" ? "text" : q.type || "text",
+        created_at: new Date().toISOString(),
+      };
+
+      console.log("Question data to insert:", questionData);
+
+      const { data: insertedQuestion, error: questionError } = await supabase
+        .from("questions")
+        .insert([questionData])
+        .select()
+        .single();
+
+      if (questionError) {
+        console.error("Error creating question:", questionError);
+        continue;
+      }
+
+      console.log("Inserted question:", insertedQuestion);
+
+      // If multiple-choice, insert the choices
+      console.log("Checking if multiple choice:", q.type, q.choices);
+      if (q.type === "multiple_choice" && q.choices && q.choices.length > 0) {
+        const choicesToInsert = q.choices.map((choice) => ({
+          question_id: insertedQuestion.id,
+          choice_text: choice.text,
+          is_correct: choice.isCorrect || false,
+        }));
+
+        console.log("Choices to insert:", choicesToInsert);
+
+        try {
+          const result = await supabase
+            .from("question_choices")
+            .insert(choicesToInsert)
+            .select();
+
+          console.log("Full insert result:", result);
+          console.log("Inserted choices:", result.data);
+          if (result.error) {
+            console.error("Error creating choices:", result.error);
+          }
+        } catch (err) {
+          console.error("Exception when inserting choices:", err);
+        }
+      }
     }
   }
 

@@ -49,21 +49,30 @@ export async function loadProfileRole() {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
 
-  if (currentUser.id === "81e519d0-8b8c-4190-bdd7-a96bfe09235c") {
-    setCurrentRole("admin");
-    return;
-  }
-
+  // Fetch role from profiles table
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", currentUser.id)
     .single();
+
   if (error) {
     console.warn("Kunne ikke hente profilrolle:", error.message);
+    // If profile doesn't exist, create one with default 'user' role
+    if (error.code === "PGRST116") {
+      const { error: insertError } = await supabase
+        .from("profiles")
+        .insert([
+          { id: currentUser.id, email: currentUser.email, role: "user" },
+        ]);
+      if (insertError) {
+        console.error("Kunne ikke opprette profil:", insertError.message);
+      }
+    }
     setCurrentRole("user");
     return;
   }
+
   setCurrentRole(data?.role || "user");
 }
 

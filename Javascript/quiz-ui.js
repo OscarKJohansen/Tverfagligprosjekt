@@ -106,14 +106,43 @@ function addQuestionField() {
 
   const index = container.children.length;
   const div = document.createElement("div");
-  div.className = "mb-3";
+  div.className = "mb-3 p-3 border rounded question-field";
   div.innerHTML = `
-    <label class="form-label">Spørsmål ${index + 1}</label>
-    <div class="input-group">
+    <label class="form-label fw-semibold">Spørsmål ${index + 1}</label>
+    <div class="mb-2">
       <input type="text" class="form-control question-input" placeholder="Skriv spørsmål..." required />
-      <button type="button" class="btn btn-outline-danger remove-question-btn">Fjern</button>
     </div>
+    <div class="mb-2">
+      <label class="form-label small">Type spørsmål</label>
+      <select class="form-select form-select-sm question-type-select">
+        <option value="text">Tekstsvar</option>
+        <option value="multiple_choice">Flervalg</option>
+      </select>
+    </div>
+    <div class="choices-container d-none">
+      <label class="form-label small">Svaralternativer</label>
+      <div class="choices-list"></div>
+      <button type="button" class="btn btn-sm btn-outline-secondary add-choice-btn mt-2">+ Legg til alternativ</button>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-danger remove-question-btn mt-2">Fjern spørsmål</button>
   `;
+
+  // Toggle choices visibility based on question type
+  const typeSelect = div.querySelector(".question-type-select");
+  const choicesContainer = div.querySelector(".choices-container");
+  typeSelect.addEventListener("change", () => {
+    const isMultipleChoice = typeSelect.value === "multiple_choice";
+    choicesContainer.classList.toggle("d-none", !isMultipleChoice);
+    if (isMultipleChoice && !div.querySelector(".choice-item")) {
+      addChoiceField(div);
+      addChoiceField(div);
+    }
+  });
+
+  // Add choice button
+  div.querySelector(".add-choice-btn").addEventListener("click", () => {
+    addChoiceField(div);
+  });
 
   div.querySelector(".remove-question-btn").addEventListener("click", () => {
     div.remove();
@@ -121,6 +150,53 @@ function addQuestionField() {
   });
 
   container.appendChild(div);
+}
+
+function addChoiceField(questionDiv) {
+  const choicesList = questionDiv.querySelector(".choices-list");
+  if (!choicesList) return;
+
+  const choiceIndex = choicesList.children.length;
+  const choiceDiv = document.createElement("div");
+  choiceDiv.className = "input-group input-group-sm mb-2 choice-item";
+  choiceDiv.innerHTML = `
+    <input type="text" class="form-control choice-input" placeholder="Alternativ ${
+      choiceIndex + 1
+    }..." required />
+    <div class="input-group-text">
+      <input type="radio" class="form-check-input mt-0 correct-choice-radio" name="correct_${Date.now()}_${choiceIndex}" title="Marker som riktig svar" />
+      <label class="ms-1 small">Riktig</label>
+    </div>
+    <button type="button" class="btn btn-outline-danger remove-choice-btn">×</button>
+  `;
+
+  // Update radio name to be unique per question
+  const questionIndex = Array.from(
+    document.querySelectorAll(".question-field")
+  ).indexOf(questionDiv);
+  choiceDiv.querySelectorAll(".correct-choice-radio").forEach((radio) => {
+    radio.name = `correct_q${questionIndex}`;
+  });
+
+  choiceDiv
+    .querySelector(".remove-choice-btn")
+    .addEventListener("click", () => {
+      choiceDiv.remove();
+    });
+
+  choicesList.appendChild(choiceDiv);
+
+  // Update all radio names in this question to match
+  updateChoiceRadioNames(questionDiv);
+}
+
+function updateChoiceRadioNames(questionDiv) {
+  const questionIndex = Array.from(
+    document.querySelectorAll(".question-field")
+  ).indexOf(questionDiv);
+  questionDiv.querySelectorAll(".correct-choice-radio").forEach((radio) => {
+    radio.name = `correct_q${questionIndex}`;
+  });
 }
 
 function updateQuestionLabels() {
@@ -139,9 +215,14 @@ async function showQuizTake(quizId) {
   await loadQuizForTaking(quizId, !currentQuizParticipantName);
 }
 
+// Store current quiz data for answer checking
+let currentQuizData = null;
+
 async function loadQuizForTaking(quizId, needsName = false) {
   const quizData = await fetchQuizWithQuestions(quizId);
   if (!quizData) return alert("Kunne ikke laste quiz.");
+
+  currentQuizData = quizData;
 
   document.getElementById("quiz-take-title").textContent = escapeHtml(
     quizData.title
@@ -160,15 +241,54 @@ async function loadQuizForTaking(quizId, needsName = false) {
   const container = document.getElementById("quiz-questions-container");
   if (container) {
     container.innerHTML = (quizData.questions || [])
-      .map(
-        (q) => `
-      <div class="mb-3">
-        <label class="form-label">${escapeHtml(q.question_text)}</label>
-        <input type="text" class="form-control quiz-answer-input" data-question-id="${
-          q.id
-        }" placeholder="Ditt svar..." required />
-      </div>`
-      )
+      .map((q) => {
+        // Check for multiple choice: either by question_type OR by having choices
+        const isMultipleChoice =
+          q.question_type === "multiple_choice" ||
+          (q.choices && q.choices.length > 0);
+
+        if (isMultipleChoice && q.choices && q.choices.length > 0) {
+          // Render radio buttons for multiple-choice questions
+          const choicesHtml = q.choices
+            .map(
+              (choice) => `
+              <div class="form-check">
+                <input class="form-check-input quiz-answer-radio" type="radio" 
+                  name="question_${q.id}" 
+                  id="choice_${choice.id}" 
+                  value="${choice.id}" 
+                  data-question-id="${q.id}"
+                  data-is-correct="${choice.is_correct || false}" />
+                <label class="form-check-label" for="choice_${choice.id}">
+                  ${escapeHtml(choice.choice_text)}
+                </label>
+              </div>`
+            )
+            .join("");
+          return `
+            <div class="mb-3 question-container" data-question-id="${
+              q.id
+            }" data-question-type="multiple_choice">
+              <label class="form-label fw-semibold">${escapeHtml(
+                q.question_text
+              )}</label>
+              ${choicesHtml}
+              <div class="answer-feedback mt-2" style="display: none;"></div>
+            </div>`;
+        } else {
+          // Render text input for text questions
+          return `
+            <div class="mb-3 question-container" data-question-id="${
+              q.id
+            }" data-question-type="text">
+              <label class="form-label">${escapeHtml(q.question_text)}</label>
+              <input type="text" class="form-control quiz-answer-input" data-question-id="${
+                q.id
+              }" placeholder="Ditt svar..." required />
+              <div class="answer-feedback mt-2" style="display: none;"></div>
+            </div>`;
+        }
+      })
       .join("");
   }
 }
@@ -361,9 +481,41 @@ export function setupQuizEventListeners() {
       const description = document
         .getElementById("quiz-description")
         ?.value.trim();
-      const questions = Array.from(document.querySelectorAll(".question-input"))
-        .map((i) => i.value.trim())
-        .filter(Boolean);
+
+      // Collect questions with their type and choices
+      const questions = [];
+      document.querySelectorAll(".question-field").forEach((questionDiv) => {
+        const questionText = questionDiv
+          .querySelector(".question-input")
+          ?.value.trim();
+        const questionType =
+          questionDiv.querySelector(".question-type-select")?.value || "text";
+
+        if (!questionText) return;
+
+        const questionData = {
+          text: questionText,
+          type: questionType,
+          choices: [],
+        };
+
+        if (questionType === "multiple_choice") {
+          questionDiv.querySelectorAll(".choice-item").forEach((choiceDiv) => {
+            const choiceText = choiceDiv
+              .querySelector(".choice-input")
+              ?.value.trim();
+            const isCorrect =
+              choiceDiv.querySelector(".correct-choice-radio")?.checked ||
+              false;
+            if (choiceText) {
+              questionData.choices.push({ text: choiceText, isCorrect });
+            }
+          });
+        }
+
+        questions.push(questionData);
+      });
+
       const statusEl = document.getElementById("quiz-create-status");
       if (!title)
         return statusEl && (statusEl.textContent = "Tittel er påkrevd.");
@@ -371,7 +523,28 @@ export function setupQuizEventListeners() {
         return (
           statusEl && (statusEl.textContent = "Minst ett spørsmål er påkrevd.")
         );
-      statusEl && (statusEl.textContent = "Opprettet quiz...");
+
+      // Validate multiple-choice questions have at least 2 choices and one correct
+      for (const q of questions) {
+        if (q.type === "multiple_choice") {
+          if (q.choices.length < 2) {
+            return (
+              statusEl &&
+              (statusEl.textContent =
+                "Flervalgsspørsmål må ha minst 2 alternativer.")
+            );
+          }
+          if (!q.choices.some((c) => c.isCorrect)) {
+            return (
+              statusEl &&
+              (statusEl.textContent =
+                "Flervalgsspørsmål må ha ett riktig svar.")
+            );
+          }
+        }
+      }
+
+      statusEl && (statusEl.textContent = "Oppretter quiz...");
       const quiz = await createQuiz(title, description, questions);
       statusEl &&
         (statusEl.textContent = quiz
@@ -385,11 +558,29 @@ export function setupQuizEventListeners() {
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const answers = {};
+      const answerDetails = {}; // Track details for feedback
+
+      // Collect text answers
       document.querySelectorAll(".quiz-answer-input").forEach((i) => {
         const qid = i.dataset.questionId;
         const val = i.value.trim();
-        if (val) answers[qid] = val;
+        if (val) {
+          answers[qid] = val;
+          answerDetails[qid] = { type: "text", value: val };
+        }
       });
+
+      // Collect multiple-choice answers
+      document
+        .querySelectorAll(".quiz-answer-radio:checked")
+        .forEach((radio) => {
+          const qid = radio.dataset.questionId;
+          const choiceId = radio.value;
+          const isCorrect = radio.dataset.isCorrect === "true";
+          answers[qid] = choiceId; // Submit choice ID as answer_text
+          answerDetails[qid] = { type: "multiple_choice", choiceId, isCorrect };
+        });
+
       const statusEl = document.getElementById("quiz-take-status");
       if (!Object.keys(answers).length)
         return (
@@ -402,11 +593,38 @@ export function setupQuizEventListeners() {
         answers,
         currentQuizParticipantName
       );
-      statusEl &&
-        (statusEl.textContent = success
-          ? "Svar sendt!"
-          : "Feil ved sending av svar.");
-      if (success) setTimeout(showQuizList, 1500);
+
+      if (success) {
+        // Show feedback for each answered question
+        Object.entries(answerDetails).forEach(([qid, detail]) => {
+          const container = document.querySelector(
+            `.question-container[data-question-id="${qid}"]`
+          );
+          const feedbackEl = container?.querySelector(".answer-feedback");
+          if (feedbackEl && detail.type === "multiple_choice") {
+            feedbackEl.style.display = "block";
+            if (detail.isCorrect) {
+              feedbackEl.innerHTML =
+                '<span class="text-success fw-semibold">✓ Riktig!</span>';
+            } else {
+              feedbackEl.innerHTML =
+                '<span class="text-danger fw-semibold">✗ Feil</span>';
+            }
+          }
+        });
+
+        // Disable inputs after submission
+        document
+          .querySelectorAll(".quiz-answer-input, .quiz-answer-radio")
+          .forEach((el) => {
+            el.disabled = true;
+          });
+
+        statusEl && (statusEl.textContent = "Svar sendt!");
+        setTimeout(showQuizList, 2500); // Longer delay to see feedback
+      } else {
+        statusEl && (statusEl.textContent = "Feil ved sending av svar.");
+      }
     });
 }
 
