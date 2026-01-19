@@ -251,12 +251,14 @@ async function loadQuizForTaking(quizId, needsName = false) {
           // Render radio buttons for multiple-choice questions
           const choicesHtml = q.choices
             .map(
-              (choice) => `
+              (choice, index) => `
               <div class="form-check">
                 <input class="form-check-input quiz-answer-radio" type="radio" 
                   name="question_${q.id}" 
                   id="choice_${choice.id}" 
-                  value="${choice.id}" 
+                  value="${escapeHtml(choice.choice_text)}" 
+                  data-option-number="${index + 1}"
+                  data-choice-text="${escapeHtml(choice.choice_text)}"
                   data-question-id="${q.id}"
                   data-is-correct="${choice.is_correct || false}" />
                 <label class="form-check-label" for="choice_${choice.id}">
@@ -575,10 +577,17 @@ export function setupQuizEventListeners() {
         .querySelectorAll(".quiz-answer-radio:checked")
         .forEach((radio) => {
           const qid = radio.dataset.questionId;
-          const choiceId = radio.value;
+          const choiceText = radio.value; // Now contains the choice text
+          const optionNumber = radio.dataset.optionNumber;
           const isCorrect = radio.dataset.isCorrect === "true";
-          answers[qid] = choiceId; // Submit choice ID as answer_text
-          answerDetails[qid] = { type: "multiple_choice", choiceId, isCorrect };
+          // Store the choice text (or "Option 2" format for clarity)
+          answers[qid] = `Option ${optionNumber}: ${choiceText}`;
+          answerDetails[qid] = {
+            type: "multiple_choice",
+            choiceText,
+            optionNumber,
+            isCorrect,
+          };
         });
 
       const statusEl = document.getElementById("quiz-take-status");
