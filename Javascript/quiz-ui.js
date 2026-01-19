@@ -325,7 +325,7 @@ function renderAnswers(containerId, answers, includeName = false) {
     const title = ans.questions?.quizzes?.title || "Ukjent quiz";
     const questionText = ans.questions?.question_text || "Ukjent spørsmål";
     const questionId = ans.questions?.id || ans.question_id;
-    
+
     if (!grouped[title]) grouped[title] = {};
     if (!grouped[title][questionId]) {
       grouped[title][questionId] = {
@@ -344,8 +344,10 @@ function renderAnswers(containerId, answers, includeName = false) {
     .map(([title, questions]) => {
       const quizAnswers = Object.values(questions).flatMap((q) => q.answers);
       const totalAnswers = quizAnswers.length;
-      const correctAnswers = quizAnswers.filter((a) => a.is_correct === true).length;
-      
+      const correctAnswers = quizAnswers.filter(
+        (a) => a.is_correct === true
+      ).length;
+
       return `
       <div class="card card-elev mb-4">
         <div class="card-body">
@@ -354,7 +356,11 @@ function renderAnswers(containerId, answers, includeName = false) {
               <h5 class="card-title mb-1">${escapeHtml(title)}</h5>
               <p class="card-text text-muted small mb-0">
                 <strong>${totalAnswers}</strong> svar
-                ${correctAnswers > 0 ? `• <strong>${correctAnswers}</strong> korrekte` : ''}
+                ${
+                  correctAnswers > 0
+                    ? `• <strong>${correctAnswers}</strong> korrekte`
+                    : ""
+                }
               </p>
             </div>
             ${
@@ -366,62 +372,92 @@ function renderAnswers(containerId, answers, includeName = false) {
             }
           </div>
           
-          <div class="accordion" id="accordion_${containerId}_${title.replace(/\s+/g, '_')}">
+          <div class="accordion" id="accordion_${containerId}_${title.replace(
+        /\s+/g,
+        "_"
+      )}">
             ${Object.entries(questions)
               .map(([qId, qData], qIndex) => {
                 const questionAnswers = qData.answers;
-                const correctCount = questionAnswers.filter((a) => a.is_correct === true).length;
-                const correctBadge = correctCount > 0 ? `<span class="badge bg-success ms-2">${correctCount}/${questionAnswers.length} korrekte</span>` : '';
-                
+                const correctCount = questionAnswers.filter(
+                  (a) => a.is_correct === true
+                ).length;
+                const correctBadge =
+                  correctCount > 0
+                    ? `<span class="badge bg-success ms-2">${correctCount}/${questionAnswers.length} korrekte</span>`
+                    : "";
+
                 return `
                 <div class="accordion-item">
                   <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse_${containerId}_${qId}" aria-expanded="false">
-                      <span class="fw-semibold">${escapeHtml(qData.questionText)}</span>
+                      <span class="fw-semibold">${escapeHtml(
+                        qData.questionText
+                      )}</span>
                       ${correctBadge}
                     </button>
                   </h2>
-                  <div id="collapse_${containerId}_${qId}" class="accordion-collapse collapse" data-bs-parent="#accordion_${containerId}_${title.replace(/\s+/g, '_')}">
+                  <div id="collapse_${containerId}_${qId}" class="accordion-collapse collapse" data-bs-parent="#accordion_${containerId}_${title.replace(
+                  /\s+/g,
+                  "_"
+                )}">
                     <div class="accordion-body p-0">
                       <div class="table-responsive">
                         <table class="table table-sm mb-0">
                           <thead class="table-light">
                             <tr>
-                              ${includeName ? "<th class=\"px-3 py-2\">Navn</th>" : ""}
+                              ${
+                                includeName
+                                  ? '<th class="px-3 py-2">Navn</th>'
+                                  : ""
+                              }
                               <th class="px-3 py-2">Svar</th>
-                              ${questionAnswers.some((a) => a.is_correct !== null) ? '<th class="px-3 py-2 text-center" style="width: 80px;">Status</th>' : ""}
+                              ${
+                                questionAnswers.some(
+                                  (a) => a.is_correct !== null
+                                )
+                                  ? '<th class="px-3 py-2 text-center" style="width: 80px;">Status</th>'
+                                  : ""
+                              }
                               <th class="px-3 py-2 text-muted" style="width: 150px;">Sendt</th>
                             </tr>
                           </thead>
                           <tbody>
                             ${questionAnswers
-                              .map(
-                                (ans) => {
-                                  let statusBadge = '';
-                                  if (ans.is_correct === true) {
-                                    statusBadge = '<span class="badge bg-success">✓</span>';
-                                  } else if (ans.is_correct === false) {
-                                    statusBadge = '<span class="badge bg-danger">✗</span>';
-                                  }
-                                  
-                                  return `
+                              .map((ans) => {
+                                let statusBadge = "";
+                                if (ans.is_correct === true) {
+                                  statusBadge =
+                                    '<span class="badge bg-success">✓</span>';
+                                } else if (ans.is_correct === false) {
+                                  statusBadge =
+                                    '<span class="badge bg-danger">✗</span>';
+                                }
+
+                                return `
                                   <tr>
                                     ${
                                       includeName
                                         ? `<td class="px-3 py-2"><small>${escapeHtml(
-                                            ans.participantName || ans.user_id?.substring(0, 8)
+                                            ans.participantName ||
+                                              ans.user_id?.substring(0, 8)
                                           )}</small></td>`
                                         : ""
                                     }
-                                    <td class="px-3 py-2"><small>${escapeHtml(ans.answer_text)}</small></td>
-                                    ${ans.is_correct !== null ? `<td class="px-3 py-2 text-center">${statusBadge}</td>` : ""}
-                                    <td class="px-3 py-2 text-muted"><small>${new Date(ans.submitted_at).toLocaleString(
-                                      "no-NO"
+                                    <td class="px-3 py-2"><small>${escapeHtml(
+                                      ans.answer_text
                                     )}</small></td>
+                                    ${
+                                      ans.is_correct !== null
+                                        ? `<td class="px-3 py-2 text-center">${statusBadge}</td>`
+                                        : ""
+                                    }
+                                    <td class="px-3 py-2 text-muted"><small>${new Date(
+                                      ans.submitted_at
+                                    ).toLocaleString("no-NO")}</small></td>
                                   </tr>
                                 `;
-                                }
-                              )
+                              })
                               .join("")}
                           </tbody>
                         </table>
@@ -444,13 +480,19 @@ function renderAnswers(containerId, answers, includeName = false) {
     document.querySelectorAll(".download-quiz-csv-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const quizTitle = btn.dataset.quizTitle;
-        const quizAnswers = Object.entries(grouped)
-          .find(([title]) => title === quizTitle)?.[1];
+        const quizAnswers = Object.entries(grouped).find(
+          ([title]) => title === quizTitle
+        )?.[1];
 
         if (quizAnswers) {
-          const flatAnswers = Object.values(quizAnswers).flatMap((q) => q.answers);
+          const flatAnswers = Object.values(quizAnswers).flatMap(
+            (q) => q.answers
+          );
           const csvContent = answersToCSV(quizTitle, flatAnswers);
-          const filename = `${quizTitle.replace(/[^a-z0-9æøå]/gi, "_")}_svar.csv`;
+          const filename = `${quizTitle.replace(
+            /[^a-z0-9æøå]/gi,
+            "_"
+          )}_svar.csv`;
           downloadCSV(filename, csvContent);
         }
       });
