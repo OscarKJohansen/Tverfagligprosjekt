@@ -1,3 +1,4 @@
+import { supabase } from "./auth.js";
 import { getCurrentUser, getCurrentRole } from "./state.js";
 import {
   fetchQuizzes,
@@ -119,6 +120,10 @@ function addQuestionField() {
         <option value="multiple_choice">Flervalg</option>
       </select>
     </div>
+    <div class="text-answer-container">
+      <label class="form-label small">Riktig svar</label>
+      <input type="text" class="form-control form-control-sm correct-text-answer" placeholder="Riktig svar (ikke sensitivt for stor/små bokstaver)..." required />
+    </div>
     <div class="choices-container d-none">
       <label class="form-label small">Svaralternativer</label>
       <div class="choices-list"></div>
@@ -127,17 +132,27 @@ function addQuestionField() {
     <button type="button" class="btn btn-sm btn-outline-danger remove-question-btn mt-2">Fjern spørsmål</button>
   `;
 
-  // Toggle choices visibility based on question type
+  // Toggle visibility based on question type
   const typeSelect = div.querySelector(".question-type-select");
   const choicesContainer = div.querySelector(".choices-container");
-  typeSelect.addEventListener("change", () => {
+  const textAnswerContainer = div.querySelector(".text-answer-container");
+
+  const toggleQuestionType = () => {
     const isMultipleChoice = typeSelect.value === "multiple_choice";
+    const isText = typeSelect.value === "text";
+
     choicesContainer.classList.toggle("d-none", !isMultipleChoice);
+    textAnswerContainer.classList.toggle("d-none", !isText);
+
     if (isMultipleChoice && !div.querySelector(".choice-item")) {
       addChoiceField(div);
       addChoiceField(div);
     }
-  });
+  };
+
+  typeSelect.addEventListener("change", toggleQuestionType);
+  // Initialize visibility on load
+  toggleQuestionType();
 
   // Add choice button
   div.querySelector(".add-choice-btn").addEventListener("click", () => {
@@ -304,12 +319,21 @@ function renderAnswers(containerId, answers, includeName = false) {
     return;
   }
 
+  // Group by quiz, then by question
   const grouped = {};
   answers.forEach((ans) => {
     const title = ans.questions?.quizzes?.title || "Ukjent quiz";
     const questionText = ans.questions?.question_text || "Ukjent spørsmål";
-    if (!grouped[title]) grouped[title] = [];
-    grouped[title].push({
+    const questionId = ans.questions?.id || ans.question_id;
+    
+    if (!grouped[title]) grouped[title] = {};
+    if (!grouped[title][questionId]) {
+      grouped[title][questionId] = {
+        questionText,
+        answers: [],
+      };
+    }
+    grouped[title][questionId].answers.push({
       ...ans,
       questionText,
       participantName: ans.participant_name,
@@ -317,56 +341,102 @@ function renderAnswers(containerId, answers, includeName = false) {
   });
 
   container.innerHTML = Object.entries(grouped)
-    .map(
-      ([title, quizAnswers]) => `
-      <div class="mb-3">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="fw-semibold mb-0">${escapeHtml(title)}</h6>
-          ${
-            includeName
-              ? `<button class="btn btn-sm btn-outline-primary download-quiz-csv-btn" data-quiz-title="${escapeHtml(
-                  title
-                ).replace(/"/g, "&quot;")}">Last ned CSV</button>`
-              : ""
-          }
-        </div>
-        <div class="table-responsive">
-          <table class="table table-sm">
-            <thead>
-              <tr>
-                ${includeName ? "<th>Navn</th>" : ""}
-                <th>Spørsmål</th>
-                <th>Svar</th>
-                <th>Sendt</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${quizAnswers
-                .map(
-                  (ans) => `
-                <tr>
-                  ${
-                    includeName
-                      ? `<td><small>${escapeHtml(
-                          ans.participantName || ans.user_id?.substring(0, 8)
-                        )}</small></td>`
-                      : ""
-                  }
-                  <td><small>${escapeHtml(ans.questionText)}</small></td>
-                  <td><small>${escapeHtml(ans.answer_text)}</small></td>
-                  <td><small>${new Date(ans.submitted_at).toLocaleString(
-                    "no-NO"
-                  )}</small></td>
-                </tr>
-              `
-                )
-                .join("")}
-            </tbody>
-          </table>
+    .map(([title, questions]) => {
+      const quizAnswers = Object.values(questions).flatMap((q) => q.answers);
+      const totalAnswers = quizAnswers.length;
+      const correctAnswers = quizAnswers.filter((a) => a.is_correct === true).length;
+      
+      return `
+      <div class="card card-elev mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="card-title mb-1">${escapeHtml(title)}</h5>
+              <p class="card-text text-muted small mb-0">
+                <strong>${totalAnswers}</strong> svar
+                ${correctAnswers > 0 ? `• <strong>${correctAnswers}</strong> korrekte` : ''}
+              </p>
+            </div>
+            ${
+              includeName
+                ? `<button class="btn btn-sm btn-outline-primary download-quiz-csv-btn" data-quiz-title="${escapeHtml(
+                    title
+                  ).replace(/"/g, "&quot;")}">Last ned CSV</button>`
+                : ""
+            }
+          </div>
+          
+          <div class="accordion" id="accordion_${containerId}_${title.replace(/\s+/g, '_')}">
+            ${Object.entries(questions)
+              .map(([qId, qData], qIndex) => {
+                const questionAnswers = qData.answers;
+                const correctCount = questionAnswers.filter((a) => a.is_correct === true).length;
+                const correctBadge = correctCount > 0 ? `<span class="badge bg-success ms-2">${correctCount}/${questionAnswers.length} korrekte</span>` : '';
+                
+                return `
+                <div class="accordion-item">
+                  <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse_${containerId}_${qId}" aria-expanded="false">
+                      <span class="fw-semibold">${escapeHtml(qData.questionText)}</span>
+                      ${correctBadge}
+                    </button>
+                  </h2>
+                  <div id="collapse_${containerId}_${qId}" class="accordion-collapse collapse" data-bs-parent="#accordion_${containerId}_${title.replace(/\s+/g, '_')}">
+                    <div class="accordion-body p-0">
+                      <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                          <thead class="table-light">
+                            <tr>
+                              ${includeName ? "<th class=\"px-3 py-2\">Navn</th>" : ""}
+                              <th class="px-3 py-2">Svar</th>
+                              ${questionAnswers.some((a) => a.is_correct !== null) ? '<th class="px-3 py-2 text-center" style="width: 80px;">Status</th>' : ""}
+                              <th class="px-3 py-2 text-muted" style="width: 150px;">Sendt</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${questionAnswers
+                              .map(
+                                (ans) => {
+                                  let statusBadge = '';
+                                  if (ans.is_correct === true) {
+                                    statusBadge = '<span class="badge bg-success">✓</span>';
+                                  } else if (ans.is_correct === false) {
+                                    statusBadge = '<span class="badge bg-danger">✗</span>';
+                                  }
+                                  
+                                  return `
+                                  <tr>
+                                    ${
+                                      includeName
+                                        ? `<td class="px-3 py-2"><small>${escapeHtml(
+                                            ans.participantName || ans.user_id?.substring(0, 8)
+                                          )}</small></td>`
+                                        : ""
+                                    }
+                                    <td class="px-3 py-2"><small>${escapeHtml(ans.answer_text)}</small></td>
+                                    ${ans.is_correct !== null ? `<td class="px-3 py-2 text-center">${statusBadge}</td>` : ""}
+                                    <td class="px-3 py-2 text-muted"><small>${new Date(ans.submitted_at).toLocaleString(
+                                      "no-NO"
+                                    )}</small></td>
+                                  </tr>
+                                `;
+                                }
+                              )
+                              .join("")}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+              })
+              .join("")}
+          </div>
         </div>
       </div>
-    `
-    )
+    `;
+    })
     .join("");
 
   // Add CSV download event listeners
@@ -374,14 +444,13 @@ function renderAnswers(containerId, answers, includeName = false) {
     document.querySelectorAll(".download-quiz-csv-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const quizTitle = btn.dataset.quizTitle;
-        const quizAnswers = grouped[quizTitle];
+        const quizAnswers = Object.entries(grouped)
+          .find(([title]) => title === quizTitle)?.[1];
 
-        if (quizAnswers && quizAnswers.length > 0) {
-          const csvContent = answersToCSV(quizTitle, quizAnswers);
-          const filename = `${quizTitle.replace(
-            /[^a-z0-9æøå]/gi,
-            "_"
-          )}_svar.csv`;
+        if (quizAnswers) {
+          const flatAnswers = Object.values(quizAnswers).flatMap((q) => q.answers);
+          const csvContent = answersToCSV(quizTitle, flatAnswers);
+          const filename = `${quizTitle.replace(/[^a-z0-9æøå]/gi, "_")}_svar.csv`;
           downloadCSV(filename, csvContent);
         }
       });
@@ -450,6 +519,7 @@ export function setupQuizEventListeners() {
   });
   [
     "results-back-btn",
+    "admin-results-back-btn",
     "back-to-quizzes-btn",
     "back-to-quizzes-btn2",
     "cancel-create-btn",
@@ -513,6 +583,11 @@ export function setupQuizEventListeners() {
               questionData.choices.push({ text: choiceText, isCorrect });
             }
           });
+        } else if (questionType === "text") {
+          const correctAnswer = questionDiv
+            .querySelector(".correct-text-answer")
+            ?.value.trim();
+          questionData.correctAnswer = correctAnswer;
         }
 
         questions.push(questionData);
@@ -526,7 +601,7 @@ export function setupQuizEventListeners() {
           statusEl && (statusEl.textContent = "Minst ett spørsmål er påkrevd.")
         );
 
-      // Validate multiple-choice questions have at least 2 choices and one correct
+      // Validate questions
       for (const q of questions) {
         if (q.type === "multiple_choice") {
           if (q.choices.length < 2) {
@@ -541,6 +616,14 @@ export function setupQuizEventListeners() {
               statusEl &&
               (statusEl.textContent =
                 "Flervalgsspørsmål må ha ett riktig svar.")
+            );
+          }
+        } else if (q.type === "text") {
+          if (!q.correctAnswer) {
+            return (
+              statusEl &&
+              (statusEl.textContent =
+                "Alle tekstspørsmål må ha ett riktig svar.")
             );
           }
         }
@@ -604,20 +687,49 @@ export function setupQuizEventListeners() {
       );
 
       if (success) {
+        // Fetch the submitted answers to get correctness feedback
+        const questionIds = Object.keys(answers).map((q) => parseInt(q));
+        const { data: submittedAnswers, error } = await supabase
+          .from("answers")
+          .select("*")
+          .in("question_id", questionIds)
+          .eq("user_id", getCurrentUser().id)
+          .order("id", { ascending: false })
+          .limit(questionIds.length);
+
+        // Create a map of latest answers by question_id
+        const answersByQuestion = {};
+        (submittedAnswers || []).forEach((ans) => {
+          if (!answersByQuestion[ans.question_id]) {
+            answersByQuestion[ans.question_id] = ans;
+          }
+        });
+
         // Show feedback for each answered question
         Object.entries(answerDetails).forEach(([qid, detail]) => {
           const container = document.querySelector(
             `.question-container[data-question-id="${qid}"]`
           );
           const feedbackEl = container?.querySelector(".answer-feedback");
-          if (feedbackEl && detail.type === "multiple_choice") {
+          if (feedbackEl) {
             feedbackEl.style.display = "block";
-            if (detail.isCorrect) {
-              feedbackEl.innerHTML =
-                '<span class="text-success fw-semibold">✓ Riktig!</span>';
-            } else {
-              feedbackEl.innerHTML =
-                '<span class="text-danger fw-semibold">✗ Feil</span>';
+            const submittedAns = answersByQuestion[parseInt(qid)];
+            if (detail.type === "multiple_choice") {
+              if (detail.isCorrect) {
+                feedbackEl.innerHTML =
+                  '<span class="text-success fw-semibold">✓ Riktig!</span>';
+              } else {
+                feedbackEl.innerHTML =
+                  '<span class="text-danger fw-semibold">✗ Feil</span>';
+              }
+            } else if (detail.type === "text" && submittedAns) {
+              if (submittedAns.is_correct === true) {
+                feedbackEl.innerHTML =
+                  '<span class="text-success fw-semibold">✓ Riktig!</span>';
+              } else if (submittedAns.is_correct === false) {
+                feedbackEl.innerHTML =
+                  '<span class="text-danger fw-semibold">✗ Feil</span>';
+              }
             }
           }
         });

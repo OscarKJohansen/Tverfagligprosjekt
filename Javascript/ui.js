@@ -62,5 +62,5 @@ export function updateAuthUI() {
   }
 }
 // Denne koden sjekker om det finnes en innlogget bruker og hvilken rolle brukeren har. Øverst på siden oppdateres små merker som viser e-posten og om brukeren er admin eller vanlig bruker. 
-// Hvis ingen er innlogget, står det bare «Gjest». Konto-kortet blir også oppdatert med e-post og rolle, eller viser «—» hvis man er logget ut. 
+// Hvis ingen er innlogget, står det bare Gjest. Kontoen blir også oppdatert med e-post og rolle, eller viser -hvis man er logget ut. 
 // Til slutt sørger updateAuthUI() for å vise riktig del av siden: innlogging når ingen er logget inn, og kontosiden når en bruker er innlogget, slik at alt holder seg oppdatert hele tiden 

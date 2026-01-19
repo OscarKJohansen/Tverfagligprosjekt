@@ -166,6 +166,26 @@ export async function createQuiz(title, description, questions) {
           console.error("Exception when inserting choices:", err);
         }
       }
+
+      // If text-type, insert the correct answer
+      if (q.type === "text" && q.correctAnswer) {
+        console.log(
+          "Inserting correct answer for text question:",
+          q.correctAnswer
+        );
+        const { error: textAnswerError } = await supabase
+          .from("text_answers")
+          .insert([
+            {
+              question_id: insertedQuestion.id,
+              correct_answer: q.correctAnswer.trim(),
+            },
+          ]);
+
+        if (textAnswerError) {
+          console.error("Error creating text answer:", textAnswerError);
+        }
+      }
     }
   }
 
@@ -177,15 +197,64 @@ export async function submitAnswers(quizId, answers, participantName = null) {
   const currentUser = getCurrentUser();
   if (!currentUser) return false;
 
-  // answers is an object: { questionId: answerText, ... }
+  // Fetch all questions for this quiz to check their types
+  const { data: questions, error: questionsError } = await supabase
+    .from("questions")
+    .select("id, question_type")
+    .eq("quiz_id", quizId);
+
+  if (questionsError) {
+    console.error("Error fetching questions for validation:", questionsError);
+    return false;
+  }
+
+  const questionMap = {};
+  questions.forEach((q) => {
+    questionMap[q.id] = q.question_type;
+  });
+
+  // Get correct answers for text questions
+  const textQuestionIds = Object.keys(questionMap)
+    .filter((qId) => questionMap[qId] === "text")
+    .map((qId) => parseInt(qId));
+
+  let correctAnswersMap = {};
+  if (textQuestionIds.length > 0) {
+    const { data: textAnswers, error: textAnswersError } = await supabase
+      .from("text_answers")
+      .select("question_id, correct_answer")
+      .in("question_id", textQuestionIds);
+
+    if (!textAnswersError && textAnswers) {
+      textAnswers.forEach((ta) => {
+        correctAnswersMap[ta.question_id] = ta.correct_answer;
+      });
+    }
+  }
+
+  // Prepare answers with correctness validation
   const answersToInsert = Object.entries(answers).map(
-    ([questionId, answerText]) => ({
-      question_id: parseInt(questionId),
-      user_id: currentUser.id,
-      answer_text: answerText,
-      participant_name: participantName || null,
-      submitted_at: new Date().toISOString(),
-    })
+    ([questionId, answerText]) => {
+      const qId = parseInt(questionId);
+      const questionType = questionMap[qId];
+      let isCorrect = null;
+
+      // Validate text answers (case-insensitive)
+      if (questionType === "text" && correctAnswersMap[qId]) {
+        isCorrect =
+          answerText.trim().toLowerCase() ===
+          correctAnswersMap[qId].toLowerCase();
+      }
+
+      return {
+        question_id: qId,
+        user_id: currentUser.id,
+        answer_text: answerText,
+        is_correct: isCorrect,
+        participant_name: participantName || null,
+        submitted_at: new Date().toISOString(),
+      };
+    }
   );
 
   const { error } = await supabase.from("answers").insert(answersToInsert);
