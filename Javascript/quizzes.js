@@ -89,7 +89,13 @@ export async function fetchQuizWithQuestions(quizId) {
 // Create new quiz with questions
 export async function createQuiz(title, description, questions) {
   const currentUser = getCurrentUser();
+  const currentRole = getCurrentRole();
   if (!currentUser) return null;
+  // Only admin can create quizzes
+  if (currentRole !== "admin") {
+    console.warn("createQuiz blocked: only admin can create quizzes");
+    return null;
+  }
 
   // Create quiz
   const { data: quiz, error: quizError } = await supabase

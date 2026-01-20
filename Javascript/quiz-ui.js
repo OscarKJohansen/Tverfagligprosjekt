@@ -34,6 +34,7 @@ export function updateQuizNav() {
   const currentRole = getCurrentRole();
   const navUserBadge = document.getElementById("nav-user-badge");
   const createQuizBtn = document.getElementById("create-quiz-btn");
+  const createQuizCard = document.getElementById("create-quiz-card");
   const navAdminLink = document.getElementById("nav-admin");
   const logoutNavBtn = document.getElementById("logout-nav-btn");
 
@@ -42,9 +43,11 @@ export function updateQuizNav() {
 
   if (currentRole === "admin") {
     createQuizBtn?.classList.remove("d-none");
+    createQuizCard?.classList.remove("d-none");
     navAdminLink?.classList.remove("d-none");
   } else {
     createQuizBtn?.classList.add("d-none");
+    createQuizCard?.classList.add("d-none");
     navAdminLink?.classList.add("d-none");
   }
 }
@@ -581,7 +584,13 @@ export function setupQuizEventListeners() {
     })
   );
   clickHandler("create-quiz-btn", () => showQuizCreate());
-  clickHandler("create-quiz-card", () => showQuizCreate());
+  clickHandler("create-quiz-card", () => {
+    if (getCurrentRole() !== "admin") {
+      alert("Bare admin kan opprette quiz.");
+      return;
+    }
+    showQuizCreate();
+  });
   clickHandler("add-question-btn", () => {
     addQuestionField();
     updateQuestionLabels();

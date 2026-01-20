@@ -160,3 +160,39 @@ h1.display-6 {
   transform: translateY(-2px);
   box-shadow: 0 0.9rem 1.6rem rgba(20, 40, 80, 0.08);
 }
+
+/* Quiz cards blue outline */
+#quiz-list .card.card-click {
+  border: 2px solid var(--primary);
+}
+
+#quiz-list .card.card-click:hover {
+  border-color: var(--primary-600);
+}
+
+/* Top accent bar under navbar */
+.accent-bar {
+  height: 2px; /* same thickness as card outline */
+  position: relative;
+  background: transparent;
+  overflow: hidden;
+}
+
+.accent-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--primary);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.accent-bar.progress::before {
+  animation: accent-load 1.1s ease-out forwards;
+}
+
+@keyframes accent-load {
+  to {
+    transform: scaleX(1);
+  }
+}

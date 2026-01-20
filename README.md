@@ -1,1 +1,1 @@
-Min quiz.
+Min quiz
