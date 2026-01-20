@@ -58,18 +58,26 @@ async function loadQuizzes() {
   const quizList = document.getElementById("quiz-list");
   if (!quizList) return;
 
-  quizList.innerHTML =
-    '<div class="col-12"><p class="text-muted">Laster...</p></div>';
+  // Remove old quiz cards but keep the create-quiz-card
+  const oldCards = quizList.querySelectorAll(".card-click");
+  oldCards.forEach((card) => card.parentElement.remove());
+
   const quizzes = await fetchQuizzes();
 
-  quizList.innerHTML =
-    quizzes.length === 0
-      ? '<div class="col-12"><p class="text-muted">Ingen quiz tilgjengelig ennå.</p></div>'
-      : quizzes
-          .map(
-            (q) => `
-      <div class="col-md-6 col-lg-4">
-        <div class="card card-elev card-click h-100" data-quiz-id="${q.id}">
+  if (quizzes.length === 0) {
+    const noQuizzesDiv = document.createElement("div");
+    noQuizzesDiv.className = "col-12";
+    noQuizzesDiv.innerHTML =
+      '<p class="text-muted">Ingen quiz tilgjengelig ennå.</p>';
+    quizList.appendChild(noQuizzesDiv);
+  } else {
+    quizzes.forEach((q) => {
+      const col = document.createElement("div");
+      col.className = "col-md-6 col-lg-4";
+      col.innerHTML = `
+        <div class="card card-elev card-click h-100" data-quiz-id="${
+          q.id
+        }" style="height: 200px">
           <div class="card-body">
             <h5 class="card-title">${escapeHtml(q.title)}</h5>
             <p class="card-text text-muted small">${escapeHtml(
@@ -80,10 +88,10 @@ async function loadQuizzes() {
             ).toLocaleDateString("no-NO")}</small>
           </div>
         </div>
-      </div>
-    `
-          )
-          .join("");
+      `;
+      quizList.appendChild(col);
+    });
+  }
 
   document.querySelectorAll(".card-click").forEach((card) => {
     card.addEventListener("click", () => showQuizTake(+card.dataset.quizId));
@@ -573,6 +581,7 @@ export function setupQuizEventListeners() {
     })
   );
   clickHandler("create-quiz-btn", () => showQuizCreate());
+  clickHandler("create-quiz-card", () => showQuizCreate());
   clickHandler("add-question-btn", () => {
     addQuestionField();
     updateQuestionLabels();
