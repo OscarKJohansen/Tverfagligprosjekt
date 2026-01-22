@@ -19,12 +19,17 @@ loginForm?.addEventListener("submit", async (e) => {
   const password = document.getElementById("login-password")?.value;
 
   if (!email || !password) {
-    if (loginStatusEl)
+    if (loginStatusEl) {
       loginStatusEl.textContent = "Skriv inn både e-post og passord.";
+      loginStatusEl.className = "mt-3 small error-message";
+    }
     return;
   }
 
-  if (loginStatusEl) loginStatusEl.textContent = "Logger inn...";
+  if (loginStatusEl) {
+    loginStatusEl.textContent = "Logger inn...";
+    loginStatusEl.className = "mt-3 text-muted small";
+  }
 
   const { data: signInData, error: signInError } =
     await supabase.auth.signInWithPassword({
@@ -34,31 +39,61 @@ loginForm?.addEventListener("submit", async (e) => {
 
   if (signInError) {
     if (signInError.message.includes("Invalid login credentials")) {
-      if (loginStatusEl)
-        loginStatusEl.textContent =
-          "Bruker finnes ikke – oppretter ny og sender verifisering...";
+      // Try to sign up - if email already exists, Supabase will return an error
+      if (loginStatusEl) loginStatusEl.textContent = "Sjekker bruker...";
 
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: window.location.href },
-      });
+      const { data: signUpData, error: signUpError } =
+        await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: window.location.href },
+        });
 
+      // Check if signup failed because user already exists
       if (signUpError) {
-        if (loginStatusEl)
+        if (loginStatusEl) {
           loginStatusEl.textContent =
             "Feil ved oppretting: " + signUpError.message;
+          loginStatusEl.className = "mt-3 small error-message";
+        }
         return;
       }
 
+      // Check if signUpData indicates user already exists (Supabase returns existing user)
+      // When email is already registered, Supabase may return identities as empty array
+      if (
+        signUpData?.user &&
+        signUpData.user.identities &&
+        signUpData.user.identities.length === 0
+      ) {
+        // User already exists, so it was wrong password
+        // Show Dark Souls death screen
+        const deathScreen = document.getElementById("death-screen");
+        if (deathScreen) {
+          deathScreen.classList.add("show");
+          setTimeout(() => {
+            deathScreen.classList.remove("show");
+          }, 3000);
+        }
+
+        if (loginStatusEl) {
+          loginStatusEl.textContent = "Feil passord. Prøv igjen.";
+          loginStatusEl.className = "mt-3 small error-message";
+        }
+        return;
+      }
+
+      // New user created successfully
       if (loginStatusEl)
         loginStatusEl.textContent =
           "Bruker opprettet! Sjekk e-posten din for en bekreftelseslenke.";
       return;
     }
 
-    if (loginStatusEl)
+    if (loginStatusEl) {
       loginStatusEl.textContent = "Innlogging feilet: " + signInError.message;
+      loginStatusEl.className = "mt-3 small error-message";
+    }
     return;
   }
 
