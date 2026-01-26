@@ -3,11 +3,17 @@ import { setCurrentUser, setCurrentRole, getCurrentUser } from "./state.js";
 export const SUPABASE_URL = "https://aiseafkfjhixolxezjjq.supabase.co";
 export const SUPABASE_ANON_KEY =
   "sb_publishable_mdoTv5Opu_0idPCaV64_6A_nIegPRg1";
+
 export const supabase = window.supabase.createClient(
   SUPABASE_URL,
-  SUPABASE_ANON_KEY
+  SUPABASE_ANON_KEY,
 );
 
+/*
+  Sjekker innloggingsstatus når siden lastes.
+  Oppdaterer statusmelding, validerer e-post,
+  lagrer bruker og laster inn riktig rolle.
+*/
 export async function ensureAuthOnLoad() {
   const loginStatusEl = document.getElementById("login-status");
   if (loginStatusEl) loginStatusEl.textContent = "Sjekker innlogging...";
@@ -27,6 +33,7 @@ export async function ensureAuthOnLoad() {
       if (loginStatusEl)
         loginStatusEl.textContent =
           "E-posten er ikke bekreftet ennå. Sjekk innboksen din.";
+
       await supabase.auth.signOut();
       setCurrentUser(null);
       setCurrentRole("user");
@@ -45,11 +52,15 @@ export async function ensureAuthOnLoad() {
     loginStatusEl.textContent = data?.user ? "Innlogget." : "Ikke innlogget.";
 }
 
+/*
+  Henter brukerrollen fra profiles-tabellen i databasen.
+  Hvis profilen ikke finnes, opprettes den automatisk
+  med standardrollen "user".
+*/
 export async function loadProfileRole() {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
 
-  // Fetch role from profiles table
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
@@ -58,17 +69,21 @@ export async function loadProfileRole() {
 
   if (error) {
     console.warn("Kunne ikke hente profilrolle:", error.message);
-    // If profile doesn't exist, create one with default 'user' role
+
     if (error.code === "PGRST116") {
-      const { error: insertError } = await supabase
-        .from("profiles")
-        .insert([
-          { id: currentUser.id, email: currentUser.email, role: "user" },
-        ]);
+      const { error: insertError } = await supabase.from("profiles").insert([
+        {
+          id: currentUser.id,
+          email: currentUser.email,
+          role: "user",
+        },
+      ]);
+
       if (insertError) {
         console.error("Kunne ikke opprette profil:", insertError.message);
       }
     }
+
     setCurrentRole("user");
     return;
   }
@@ -76,18 +91,36 @@ export async function loadProfileRole() {
   setCurrentRole(data?.role || "user");
 }
 
+/*
+  Logger brukeren ut og nullstiller
+  lagret bruker og rolle i applikasjonen.
+*/
 export async function handleLogout() {
   await supabase.auth.signOut();
   setCurrentUser(null);
   setCurrentRole("user");
 }
 
+/*
+  Lytter etter endringer i innloggingsstatus fra Supabase
+  og oppdaterer gjeldende bruker automatisk.
+*/
 supabase.auth.onAuthStateChange((_event, session) => {
   setCurrentUser(session?.user ?? null);
 });
 
-// Oppretter Supabase-klienten med riktig URL og nøkkel.
-// ensureAuthOnLoad(): Sjekker om brukeren er innlogget når siden lastes. Logger ut hvis e-posten ikke er bekreftet, lagrer bruker og rolle, og oppdaterer statusmeldingen.
-// loadProfileRole(): Henter brukerrollen fra profiles-tabellen. En bestemt ID gir admin-rolle, ellers settes rollen til vanlig bruker.
-// handleLogout(): Logger ut brukeren og nullstiller lagret bruker og rolle.
-// Lytter på endringer i innloggingstilstanden fra Supabase og oppdaterer brukeren automatisk.
+/*
+  Denne filen oppretter Supabase-klienten med riktig URL og nøkkel
+  og håndterer all grunnleggende autentisering i applikasjonen.
+
+  ensureAuthOnLoad() sjekker om brukeren er innlogget når siden lastes,
+  sørger for at e-posten er bekreftet, og oppdaterer statusmeldingen.
+
+  loadProfileRole() henter rollen til brukeren fra databasen, eller
+  oppretter en ny profil med standardrolle hvis den ikke finnes.
+
+  handleLogout() logger brukeren ut og nullstiller lagret tilstand.
+
+  Til slutt lyttes det på endringer i innloggingstilstanden slik at
+  brukerdata alltid er synkronisert.
+*/

@@ -9,6 +9,7 @@ import { getCurrentUser, setCurrentUser } from "./state.js";
 const loginForm = document.getElementById("login-form");
 const loginStatusEl = document.getElementById("login-status");
 
+// Håndterer innsending av innloggingsskjema
 loginForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -18,6 +19,7 @@ loginForm?.addEventListener("submit", async (e) => {
     .toLowerCase();
   const password = document.getElementById("login-password")?.value;
 
+  // Sjekker at e-post og passord er fylt inn
   if (!email || !password) {
     if (loginStatusEl) {
       loginStatusEl.textContent = "Skriv inn både e-post og passord.";
@@ -26,22 +28,26 @@ loginForm?.addEventListener("submit", async (e) => {
     return;
   }
 
+  // Viser statusmelding under innlogging
   if (loginStatusEl) {
     loginStatusEl.textContent = "Logger inn...";
     loginStatusEl.className = "mt-3 text-muted small";
   }
 
+  // Forsøker å logge inn brukeren
   const { data: signInData, error: signInError } =
     await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
+  // Hvis innlogging feiler
   if (signInError) {
+    // Hvis brukeren ikke finnes eller passord er feil
     if (signInError.message.includes("Invalid login credentials")) {
-      // Try to sign up - if email already exists, Supabase will return an error
       if (loginStatusEl) loginStatusEl.textContent = "Sjekker bruker...";
 
+      // Forsøker å opprette ny bruker
       const { data: signUpData, error: signUpError } =
         await supabase.auth.signUp({
           email,
@@ -49,7 +55,7 @@ loginForm?.addEventListener("submit", async (e) => {
           options: { emailRedirectTo: window.location.href },
         });
 
-      // Check if signup failed because user already exists
+      // Feil ved oppretting av bruker
       if (signUpError) {
         if (loginStatusEl) {
           loginStatusEl.textContent =
@@ -59,15 +65,12 @@ loginForm?.addEventListener("submit", async (e) => {
         return;
       }
 
-      // Check if signUpData indicates user already exists (Supabase returns existing user)
-      // When email is already registered, Supabase may return identities as empty array
+      // Bruker finnes allerede → feil passord
       if (
         signUpData?.user &&
         signUpData.user.identities &&
         signUpData.user.identities.length === 0
       ) {
-        // User already exists, so it was wrong password
-        // Show Dark Souls death screen
         const deathScreen = document.getElementById("death-screen");
         if (deathScreen) {
           deathScreen.classList.add("show");
@@ -83,13 +86,15 @@ loginForm?.addEventListener("submit", async (e) => {
         return;
       }
 
-      // New user created successfully
-      if (loginStatusEl)
+      // Ny bruker er opprettet
+      if (loginStatusEl) {
         loginStatusEl.textContent =
           "Bruker opprettet! Sjekk e-posten din for en bekreftelseslenke.";
+      }
       return;
     }
 
+    // Generell innloggingsfeil
     if (loginStatusEl) {
       loginStatusEl.textContent = "Innlogging feilet: " + signInError.message;
       loginStatusEl.className = "mt-3 small error-message";
@@ -97,35 +102,38 @@ loginForm?.addEventListener("submit", async (e) => {
     return;
   }
 
+  // Sjekker om e-post er bekreftet
   if (!signInData.user.confirmed_at) {
-    if (loginStatusEl)
+    if (loginStatusEl) {
       loginStatusEl.textContent =
         "E-posten er ikke bekreftet ennå. Sjekk innboksen din.";
+    }
     await supabase.auth.signOut();
     return;
   }
 
+  // Lagrer bruker og rolle
   setCurrentUser(signInData.user);
   await loadProfileRole();
+
   if (loginStatusEl) loginStatusEl.textContent = "Innlogging vellykket.";
 
-  // Redirect to quiz page
+  // Sender brukeren videre til quiz-siden
   setTimeout(() => {
     window.location.href = "./quiz.html";
   }, 1000);
 });
 
-// Initialize on page load
+// Sjekker innlogging når siden lastes
 ensureAuthOnLoad().then(() => {
   const currentUser = getCurrentUser();
   if (currentUser) {
-    // Already logged in, redirect to quiz
     window.location.href = "./quiz.html";
   }
   if (loginStatusEl) loginStatusEl.textContent = "";
 });
 
-// Listen for auth changes
+// Lytter på endringer i innloggingsstatus
 supabase.auth.onAuthStateChange((_event, session) => {
   setCurrentUser(session?.user ?? null);
   if (session?.user) {

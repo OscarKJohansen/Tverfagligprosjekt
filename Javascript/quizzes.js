@@ -1,29 +1,35 @@
 import { supabase } from "./auth.js";
 import { getCurrentUser, getCurrentRole } from "./state.js";
 
-// Fetch all quizzes
+/*
+  Henter alle quizer fra databasen.
+  Kan sorteres enten etter nyeste eller etter mest populære (flest svar).
+*/
 export async function fetchQuizzesByCategory(category = "newest") {
   let query = supabase.from("quizzes").select("*");
 
   if (category === "top") {
-    // Order by answers_count desc, then created_at desc
     query = query
       .order("answers_count", { ascending: false })
       .order("created_at", { ascending: false });
   } else {
-    // Default: newest by created_at desc
     query = query.order("created_at", { ascending: false });
   }
 
   const { data, error } = await query;
+
   if (error) {
     console.error("Error fetching quizzes:", error);
     return [];
   }
+
   return data || [];
 }
 
-// Fetch single quiz with questions
+/*
+  Henter en quiz med alle tilhørende spørsmål.
+  Kobler også svaralternativer (choices) til riktige spørsmål.
+*/
 export async function fetchQuizWithQuestions(quizId) {
   const { data: quiz, error: quizError } = await supabase
     .from("quizzes")
@@ -47,13 +53,10 @@ export async function fetchQuizWithQuestions(quizId) {
     return quiz;
   }
 
-  // Fetch choices for all questions (in case question_type wasn't set properly)
-  // We'll check for choices for any question and use that to determine the type
   const allQuestionIds = (questions || []).map((q) => q.id);
-  console.log("All question IDs:", allQuestionIds);
-  console.log("Questions from DB:", questions);
 
   let choicesMap = {};
+
   if (allQuestionIds.length > 0) {
     const { data: choices, error: choicesError } = await supabase
       .from("question_choices")
@@ -61,13 +64,7 @@ export async function fetchQuizWithQuestions(quizId) {
       .in("question_id", allQuestionIds)
       .order("id", { ascending: true });
 
-    console.log("Choices from DB:", choices);
-    console.log("Choices error:", choicesError);
-
-    if (choicesError) {
-      console.error("Error fetching choices:", choicesError);
-    } else {
-      // Group choices by question_id
+    if (!choicesError) {
       (choices || []).forEach((choice) => {
         if (!choicesMap[choice.question_id]) {
           choicesMap[choice.question_id] = [];
@@ -77,15 +74,10 @@ export async function fetchQuizWithQuestions(quizId) {
     }
   }
 
-  console.log("Choices map:", choicesMap);
-
-  // Attach choices to their respective questions
   const questionsWithChoices = (questions || []).map((q) => ({
     ...q,
     choices: choicesMap[q.id] || [],
   }));
-
-  console.log("Questions with choices:", questionsWithChoices);
 
   return {
     ...quiz,
@@ -93,18 +85,17 @@ export async function fetchQuizWithQuestions(quizId) {
   };
 }
 
-// Create new quiz with questions
+/*
+  Oppretter en ny quiz med spørsmål.
+  Kun brukere med admin-rolle har lov til å gjøre dette.
+*/
 export async function createQuiz(title, description, questions) {
   const currentUser = getCurrentUser();
   const currentRole = getCurrentRole();
-  if (!currentUser) return null;
-  // Only admin can create quizzes
-  if (currentRole !== "admin") {
-    console.warn("createQuiz blocked: only admin can create quizzes");
-    return null;
-  }
 
-  // Create quiz
+  if (!currentUser) return null;
+  if (currentRole !== "admin") return null;
+
   const { data: quiz, error: quizError } = await supabase
     .from("quizzes")
     .insert([
@@ -123,14 +114,8 @@ export async function createQuiz(title, description, questions) {
     return null;
   }
 
-  // Create questions
   if (questions && questions.length > 0) {
-    // questions is now an array of objects: { text, type, choices: [{text, isCorrect}] }
-    console.log("Creating questions:", questions);
-
     for (const q of questions) {
-      console.log("Processing question:", q);
-
       const questionData = {
         quiz_id: quiz.id,
         question_text: typeof q === "string" ? q : q.text,
@@ -138,66 +123,31 @@ export async function createQuiz(title, description, questions) {
         created_at: new Date().toISOString(),
       };
 
-      console.log("Question data to insert:", questionData);
-
       const { data: insertedQuestion, error: questionError } = await supabase
         .from("questions")
         .insert([questionData])
         .select()
         .single();
 
-      if (questionError) {
-        console.error("Error creating question:", questionError);
-        continue;
-      }
+      if (questionError) continue;
 
-      console.log("Inserted question:", insertedQuestion);
-
-      // If multiple-choice, insert the choices
-      console.log("Checking if multiple choice:", q.type, q.choices);
-      if (q.type === "multiple_choice" && q.choices && q.choices.length > 0) {
+      if (q.type === "multiple_choice" && q.choices?.length > 0) {
         const choicesToInsert = q.choices.map((choice) => ({
           question_id: insertedQuestion.id,
           choice_text: choice.text,
           is_correct: choice.isCorrect || false,
         }));
 
-        console.log("Choices to insert:", choicesToInsert);
-
-        try {
-          const result = await supabase
-            .from("question_choices")
-            .insert(choicesToInsert)
-            .select();
-
-          console.log("Full insert result:", result);
-          console.log("Inserted choices:", result.data);
-          if (result.error) {
-            console.error("Error creating choices:", result.error);
-          }
-        } catch (err) {
-          console.error("Exception when inserting choices:", err);
-        }
+        await supabase.from("question_choices").insert(choicesToInsert);
       }
 
-      // If text-type, insert the correct answer
       if (q.type === "text" && q.correctAnswer) {
-        console.log(
-          "Inserting correct answer for text question:",
-          q.correctAnswer,
-        );
-        const { error: textAnswerError } = await supabase
-          .from("text_answers")
-          .insert([
-            {
-              question_id: insertedQuestion.id,
-              correct_answer: q.correctAnswer.trim(),
-            },
-          ]);
-
-        if (textAnswerError) {
-          console.error("Error creating text answer:", textAnswerError);
-        }
+        await supabase.from("text_answers").insert([
+          {
+            question_id: insertedQuestion.id,
+            correct_answer: q.correctAnswer.trim(),
+          },
+        ]);
       }
     }
   }
@@ -205,55 +155,47 @@ export async function createQuiz(title, description, questions) {
   return quiz;
 }
 
-// Submit answers to a quiz
+/*
+  Sender inn svar på en quiz.
+  Tekstsvar sjekkes automatisk mot fasit hvis den finnes.
+*/
 export async function submitAnswers(quizId, answers, participantName = null) {
   const currentUser = getCurrentUser();
   if (!currentUser) return false;
 
-  // Fetch all questions for this quiz to check their types
   const { data: questions, error: questionsError } = await supabase
     .from("questions")
     .select("id, question_type")
     .eq("quiz_id", quizId);
 
-  if (questionsError) {
-    console.error("Error fetching questions for validation:", questionsError);
-    return false;
-  }
+  if (questionsError) return false;
 
   const questionMap = {};
-  questions.forEach((q) => {
-    questionMap[q.id] = q.question_type;
-  });
+  questions.forEach((q) => (questionMap[q.id] = q.question_type));
 
-  // Get correct answers for text questions
   const textQuestionIds = Object.keys(questionMap)
-    .filter((qId) => questionMap[qId] === "text")
-    .map((qId) => parseInt(qId));
+    .filter((id) => questionMap[id] === "text")
+    .map(Number);
 
   let correctAnswersMap = {};
+
   if (textQuestionIds.length > 0) {
-    const { data: textAnswers, error: textAnswersError } = await supabase
+    const { data: textAnswers } = await supabase
       .from("text_answers")
       .select("question_id, correct_answer")
       .in("question_id", textQuestionIds);
 
-    if (!textAnswersError && textAnswers) {
-      textAnswers.forEach((ta) => {
-        correctAnswersMap[ta.question_id] = ta.correct_answer;
-      });
-    }
+    (textAnswers || []).forEach(
+      (ta) => (correctAnswersMap[ta.question_id] = ta.correct_answer),
+    );
   }
 
-  // Prepare answers with correctness validation
   const answersToInsert = Object.entries(answers).map(
     ([questionId, answerText]) => {
-      const qId = parseInt(questionId);
-      const questionType = questionMap[qId];
+      const qId = Number(questionId);
       let isCorrect = null;
 
-      // Validate text answers (case-insensitive)
-      if (questionType === "text" && correctAnswersMap[qId]) {
+      if (questionMap[qId] === "text" && correctAnswersMap[qId]) {
         isCorrect =
           answerText.trim().toLowerCase() ===
           correctAnswersMap[qId].toLowerCase();
@@ -264,57 +206,41 @@ export async function submitAnswers(quizId, answers, participantName = null) {
         user_id: currentUser.id,
         answer_text: answerText,
         is_correct: isCorrect,
-        participant_name: participantName || null,
+        participant_name: participantName,
         submitted_at: new Date().toISOString(),
       };
     },
   );
 
   const { error } = await supabase.from("answers").insert(answersToInsert);
+  if (error) return false;
 
-  if (error) {
-    console.error("Error submitting answers:", error);
-    return false;
-  }
-
-  // Increment answers_count on the quiz (fallback: fetch current and add number of answers submitted)
   try {
-    const { data: quizRow, error: quizFetchError } = await supabase
+    const { data: quizRow } = await supabase
       .from("quizzes")
-      .select("id, answers_count")
+      .select("answers_count")
       .eq("id", quizId)
       .single();
 
-    if (!quizFetchError && quizRow) {
-      // Increment by 1 per submission (not per question)
-      const incrementBy = 1;
-      const newCount = (quizRow.answers_count || 0) + incrementBy;
-      const { error: updateError } = await supabase
+    if (quizRow) {
+      await supabase
         .from("quizzes")
-        .update({ answers_count: newCount })
+        .update({ answers_count: (quizRow.answers_count || 0) + 1 })
         .eq("id", quizId);
-      if (updateError) {
-        console.warn("Could not update answers_count:", updateError.message);
-      }
     }
-  } catch (e) {
-    console.warn("answers_count increment failed:", e.message);
-  }
+  } catch {}
 
   return true;
 }
 
-// Fetch all answers (admin only)
+/*
+  Henter alle svar brukeren har tilgang til.
+  Hva som vises styres av Supabase RLS-regler.
+*/
 export async function fetchAllAnswers() {
   const currentUser = getCurrentUser();
-  if (!currentUser) {
-    return { answers: [], error: "Ikke innlogget." };
-  }
+  if (!currentUser) return { answers: [], error: "Ikke innlogget." };
 
-  // Note: RLS decides what the user is allowed to see.
-  // With the policies in QUIZ_SETUP.md this returns:
-  // - the user's own answers
-  // - answers to quizzes they created
   const { data, error } = await supabase
     .from("answers")
     .select(
@@ -330,20 +256,17 @@ export async function fetchAllAnswers() {
     )
     .order("submitted_at", { ascending: false });
 
-  if (error) {
-    console.error("Error fetching answers:", error);
-    return { answers: [], error: error.message || "Ukjent feil." };
-  }
+  if (error) return { answers: [], error: error.message };
 
   return { answers: data || [], error: null };
 }
 
-// Fetch only the current user's own answers
+/*
+  Henter kun svarene til den innloggede brukeren.
+*/
 export async function fetchMyAnswers() {
   const currentUser = getCurrentUser();
-  if (!currentUser) {
-    return { answers: [], error: "Ikke innlogget." };
-  }
+  if (!currentUser) return { answers: [], error: "Ikke innlogget." };
 
   const { data, error } = await supabase
     .from("answers")
@@ -361,15 +284,15 @@ export async function fetchMyAnswers() {
     .eq("user_id", currentUser.id)
     .order("submitted_at", { ascending: false });
 
-  if (error) {
-    console.error("Error fetching my answers:", error);
-    return { answers: [], error: error.message || "Ukjent feil." };
-  }
+  if (error) return { answers: [], error: error.message };
 
   return { answers: data || [], error: null };
 }
 
-// Fetch answers for a specific quiz (admin only)
+/*
+  Henter alle svar for én spesifikk quiz.
+  Kun tilgjengelig for admin-brukere.
+*/
 export async function fetchQuizAnswers(quizId) {
   const currentRole = getCurrentRole();
   if (currentRole !== "admin") return [];
@@ -389,10 +312,7 @@ export async function fetchQuizAnswers(quizId) {
     .eq("questions.quiz_id", quizId)
     .order("submitted_at", { ascending: false });
 
-  if (error) {
-    console.error("Error fetching quiz answers:", error);
-    return [];
-  }
+  if (error) return [];
 
   return data || [];
 }

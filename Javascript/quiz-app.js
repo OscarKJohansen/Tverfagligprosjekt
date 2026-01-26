@@ -11,12 +11,14 @@ import {
   setupQuizEventListeners,
 } from "./quiz-ui.js";
 
-// Check if user is logged in, redirect to login if not
+/*
+  Sjekker om brukeren er innlogget og har bekreftet e-post.
+  Hvis ikke, blir brukeren sendt tilbake til innloggingssiden.
+*/
 async function checkAuth() {
   const { data, error } = await supabase.auth.getUser();
 
   if (error || !data?.user || !data.user.confirmed_at) {
-    // Not logged in or email not confirmed, redirect to login
     window.location.href = "./index.html";
     return false;
   }
@@ -24,7 +26,11 @@ async function checkAuth() {
   return true;
 }
 
-// Initialize quiz page
+/*
+  Starter quiz-siden.
+  Sørger for at brukeren er autentisert før
+  navigasjon, hendelser og quizliste lastes inn.
+*/
 async function initQuizPage() {
   const isLoggedIn = await checkAuth();
   if (!isLoggedIn) return;
@@ -35,7 +41,10 @@ async function initQuizPage() {
   showQuizList();
 }
 
-// Logout handler
+/*
+  Håndterer utlogging via navigasjonsknappen.
+  Logger brukeren ut og sender dem til innloggingssiden.
+*/
 document
   .getElementById("logout-nav-btn")
   ?.addEventListener("click", async () => {
@@ -43,12 +52,19 @@ document
     window.location.href = "./index.html";
   });
 
-// Initialize on page load
+/*
+  Initialiserer quiz-siden når siden lastes.
+*/
 initQuizPage();
 
-// Listen for auth changes
+/*
+  Lytter etter endringer i autentisering.
+  Oppdaterer brukerstatus og sender brukeren
+  til innlogging hvis økten avsluttes.
+*/
 supabase.auth.onAuthStateChange((_event, session) => {
   setCurrentUser(session?.user ?? null);
+
   if (!session?.user) {
     window.location.href = "./index.html";
   }

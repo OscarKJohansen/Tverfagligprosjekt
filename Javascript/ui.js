@@ -1,5 +1,10 @@
 import { getCurrentUser, getCurrentRole } from "./state.js";
 
+/*
+  Oppdaterer merkene (badges) øverst på siden.
+  Viser e-post og rolle hvis brukeren er innlogget,
+  eller "Gjest" hvis ingen er logget inn.
+*/
 function updateBadges() {
   const userBadge = document.getElementById("user-badge");
   const roleBadge = document.getElementById("role-badge");
@@ -10,12 +15,15 @@ function updateBadges() {
 
   if (currentUser?.email) {
     const isAdmin = currentRole === "admin";
+
     userBadge.textContent = currentUser.email;
     userBadge.className = "badge rounded-pill text-bg-secondary";
+
     roleBadge.textContent = isAdmin ? "Admin" : "Bruker";
     roleBadge.className =
       "badge rounded-pill " +
       (isAdmin ? "text-bg-warning" : "text-bg-secondary");
+
     roleBadge.classList.remove("d-none");
   } else {
     userBadge.textContent = "Gjest";
@@ -24,14 +32,21 @@ function updateBadges() {
   }
 }
 
+/*
+  Oppdaterer kontoinformasjonen på kontosiden.
+  Viser e-post og rolle hvis brukeren er innlogget,
+  ellers vises standardverdier.
+*/
 function updateAccountCard() {
   const accountEmail = document.getElementById("account-email");
   const accountRole = document.getElementById("account-role");
   const currentUser = getCurrentUser();
   const currentRole = getCurrentRole();
 
-  if (accountEmail)
+  if (accountEmail) {
     accountEmail.textContent = currentUser?.email || "Ikke innlogget";
+  }
+
   if (accountRole) {
     if (!currentUser) {
       accountRole.textContent = "—";
@@ -43,6 +58,12 @@ function updateAccountCard() {
   }
 }
 
+/*
+  Hovedfunksjon for autentiserings-UI.
+  Oppdaterer badges og kontoinfo, og
+  viser enten innlogging eller kontoside
+  basert på om brukeren er innlogget.
+*/
 export function updateAuthUI() {
   const authArea = document.getElementById("auth-area");
   const accountArea = document.getElementById("account-area");
@@ -61,6 +82,15 @@ export function updateAuthUI() {
     accountArea.classList.add("d-none");
   }
 }
-// Denne koden sjekker om det finnes en innlogget bruker og hvilken rolle brukeren har. Øverst på siden oppdateres små merker som viser e-posten og om brukeren er admin eller vanlig bruker. 
-// Hvis ingen er innlogget, står det bare Gjest. Kontoen blir også oppdatert med e-post og rolle, eller viser -hvis man er logget ut. 
-// Til slutt sørger updateAuthUI() for å vise riktig del av siden: innlogging når ingen er logget inn, og kontosiden når en bruker er innlogget, slik at alt holder seg oppdatert hele tiden 
+
+/*
+  Denne koden sjekker om det finnes en innlogget bruker og hvilken rolle brukeren har.
+  Øverst på siden oppdateres små merker som viser e-post og om brukeren er admin
+  eller vanlig bruker. Hvis ingen er innlogget, vises bare "Gjest".
+
+  Konto-siden oppdateres også med riktig e-post og rolle, eller viser en
+  standardverdi hvis brukeren er logget ut.
+
+  Til slutt sørger updateAuthUI() for at riktig del av siden vises:
+  innlogging når ingen er logget inn, og kontosiden når en bruker er innlogget.
+*/
