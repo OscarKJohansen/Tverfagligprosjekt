@@ -2,17 +2,24 @@ import { supabase } from "./auth.js";
 import { getCurrentUser, getCurrentRole } from "./state.js";
 
 // Fetch all quizzes
-export async function fetchQuizzes() {
-  const { data, error } = await supabase
-    .from("quizzes")
-    .select("*")
-    .order("created_at", { ascending: false });
+export async function fetchQuizzesByCategory(category = "newest") {
+  let query = supabase.from("quizzes").select("*");
 
+  if (category === "top") {
+    // Order by answers_count desc, then created_at desc
+    query = query
+      .order("answers_count", { ascending: false })
+      .order("created_at", { ascending: false });
+  } else {
+    // Default: newest by created_at desc
+    query = query.order("created_at", { ascending: false });
+  }
+
+  const { data, error } = await query;
   if (error) {
     console.error("Error fetching quizzes:", error);
     return [];
   }
-
   return data || [];
 }
 
@@ -268,6 +275,30 @@ export async function submitAnswers(quizId, answers, participantName = null) {
   if (error) {
     console.error("Error submitting answers:", error);
     return false;
+  }
+
+  // Increment answers_count on the quiz (fallback: fetch current and add number of answers submitted)
+  try {
+    const { data: quizRow, error: quizFetchError } = await supabase
+      .from("quizzes")
+      .select("id, answers_count")
+      .eq("id", quizId)
+      .single();
+
+    if (!quizFetchError && quizRow) {
+      // Increment by 1 per submission (not per question)
+      const incrementBy = 1;
+      const newCount = (quizRow.answers_count || 0) + incrementBy;
+      const { error: updateError } = await supabase
+        .from("quizzes")
+        .update({ answers_count: newCount })
+        .eq("id", quizId);
+      if (updateError) {
+        console.warn("Could not update answers_count:", updateError.message);
+      }
+    }
+  } catch (e) {
+    console.warn("answers_count increment failed:", e.message);
   }
 
   return true;

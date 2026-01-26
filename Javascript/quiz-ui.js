@@ -1,7 +1,7 @@
 import { supabase } from "./auth.js";
 import { getCurrentUser, getCurrentRole } from "./state.js";
 import {
-  fetchQuizzes,
+  fetchQuizzesByCategory,
   fetchQuizWithQuestions,
   createQuiz,
   submitAnswers,
@@ -20,6 +20,8 @@ const AREAS = [
   "admin-results-area",
   "results-area",
 ];
+
+let currentCategory = "newest"; // default category
 
 function toggleAreas(showIds = []) {
   AREAS.forEach((id) => {
@@ -54,10 +56,10 @@ export function updateQuizNav() {
 
 export async function showQuizList() {
   toggleAreas(["app-area", "quiz-list-area"]);
-  await loadQuizzes();
+  await loadQuizzes(currentCategory);
 }
 
-async function loadQuizzes() {
+async function loadQuizzes(category = "newest") {
   const quizList = document.getElementById("quiz-list");
   if (!quizList) return;
 
@@ -65,7 +67,7 @@ async function loadQuizzes() {
   const oldCards = quizList.querySelectorAll(".card-click");
   oldCards.forEach((card) => card.parentElement.remove());
 
-  const quizzes = await fetchQuizzes();
+  const quizzes = await fetchQuizzesByCategory(category);
 
   if (quizzes.length === 0) {
     const noQuizzesDiv = document.createElement("div");
@@ -86,9 +88,14 @@ async function loadQuizzes() {
             <p class="card-text text-muted small">${escapeHtml(
               q.description || ""
             )}</p>
-            <small class="text-muted">Opprettet: ${new Date(
+            <small class="text-muted d-block">Opprettet: ${new Date(
               q.created_at
             ).toLocaleDateString("no-NO")}</small>
+            ${
+              typeof q.answers_count === "number"
+                ? `<small class="text-muted">Svar: ${q.answers_count}</small>`
+                : ""
+            }
           </div>
         </div>
       `;
@@ -569,6 +576,20 @@ export function setupQuizEventListeners() {
   clickHandler("nav-admin", (e) => {
     e.preventDefault();
     showAdminResults();
+  });
+  clickHandler("filter-newest", async (e) => {
+    e.preventDefault();
+    currentCategory = "newest";
+    document.getElementById("filter-newest")?.classList.add("active");
+    document.getElementById("filter-top")?.classList.remove("active");
+    await loadQuizzes(currentCategory);
+  });
+  clickHandler("filter-top", async (e) => {
+    e.preventDefault();
+    currentCategory = "top";
+    document.getElementById("filter-top")?.classList.add("active");
+    document.getElementById("filter-newest")?.classList.remove("active");
+    await loadQuizzes(currentCategory);
   });
   [
     "results-back-btn",
