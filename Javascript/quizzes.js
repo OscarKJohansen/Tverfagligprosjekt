@@ -184,7 +184,7 @@ export async function createQuiz(title, description, questions) {
       if (q.type === "text" && q.correctAnswer) {
         console.log(
           "Inserting correct answer for text question:",
-          q.correctAnswer
+          q.correctAnswer,
         );
         const { error: textAnswerError } = await supabase
           .from("text_answers")
@@ -267,7 +267,7 @@ export async function submitAnswers(quizId, answers, participantName = null) {
         participant_name: participantName || null,
         submitted_at: new Date().toISOString(),
       };
-    }
+    },
   );
 
   const { error } = await supabase.from("answers").insert(answersToInsert);
@@ -326,7 +326,7 @@ export async function fetchAllAnswers() {
       participant_name,
       submitted_at,
       questions (id, question_text, quiz_id, quizzes (id, title, created_by))
-    `
+    `,
     )
     .order("submitted_at", { ascending: false });
 
@@ -356,7 +356,7 @@ export async function fetchMyAnswers() {
       participant_name,
       submitted_at,
       questions (id, question_text, quiz_id, quizzes (id, title, created_by))
-    `
+    `,
     )
     .eq("user_id", currentUser.id)
     .order("submitted_at", { ascending: false });
@@ -384,7 +384,7 @@ export async function fetchQuizAnswers(quizId) {
       answer_text,
       submitted_at,
       questions (id, question_text)
-    `
+    `,
     )
     .eq("questions.quiz_id", quizId)
     .order("submitted_at", { ascending: false });
