@@ -14,15 +14,26 @@
 /* Base */
 html,
 body {
-  background: var(--bg);
+  background: linear-gradient(135deg, #f5f9ff 0%, #e8f1ff 100%);
   color: var(--text);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 .navbar {
   background: #ffffff !important;
-  border-bottom: 1px solid var(--border) !important;
+  border-bottom: 2px solid var(--primary-100) !important;
+  box-shadow: 0 2px 8px rgba(20, 40, 80, 0.08);
+}
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--primary-600) !important;
 }
 .container {
-  max-width: 1080px;
+  max-width: 1200px;
+}
+main.container {
+  padding: 2rem 1rem;
 }
 
 /* Header */
@@ -35,57 +46,99 @@ header {
 h1.display-6 {
   letter-spacing: 0.2px;
 }
+h2.h4 {
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 3px solid var(--primary);
+}
 
 /* Cards */
 .card-elev {
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: 1rem;
-  box-shadow: 0 0.25rem 0.8rem rgba(20, 40, 80, 0.06);
+  box-shadow: 0 4px 12px rgba(20, 40, 80, 0.08);
+  transition: all 0.3s ease;
+}
+.card-elev:hover {
+  box-shadow: 0 8px 20px rgba(20, 40, 80, 0.12);
+}
+.card-elev .card-body {
+  padding: 2rem;
 }
 .card-click {
   cursor: pointer;
   transition:
-    transform 0.08s ease,
-    box-shadow 0.12s ease,
-    border-color 0.12s ease;
-  border-color: var(--border);
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+  border-color: var(--primary);
+  border-width: 2px;
 }
 .card-click:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0.9rem 1.6rem rgba(20, 40, 80, 0.08);
-  border-color: var(--primary-100);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(20, 40, 80, 0.12);
+  border-color: var(--primary-600);
 }
 
 /* Badges */
 #user-badge,
 #role-badge {
-  font-weight: 600;
+  font-weight: 700;
   background-color: var(--primary-100);
   color: var(--primary-600);
-  border: 1px solid var(--border);
+  border: 2px solid var(--primary);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
 }
 
 /* Buttons */
 .btn-primary {
   background-color: var(--primary);
   border-color: var(--primary);
+  font-weight: 600;
+  padding: 0.65rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  transition: all 0.2s ease;
 }
 .btn-primary:hover {
   background-color: var(--primary-600);
   border-color: var(--primary-600);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+.btn-outline-primary {
+  color: var(--primary);
+  border-color: var(--primary);
+  font-weight: 600;
+  border-width: 2px;
+  padding: 0.55rem 1.3rem;
+  transition: all 0.2s ease;
+}
+.btn-outline-primary:hover {
+  color: #fff;
+  background-color: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 .btn-outline-secondary {
   color: var(--muted);
   border-color: var(--border);
+  font-weight: 600;
+  border-width: 2px;
 }
 .btn-outline-secondary:hover {
   color: var(--primary-600);
   border-color: var(--primary-600);
+  background-color: var(--primary-100);
 }
 .btn-outline-danger {
   color: #dc3545;
   border-color: #dc3545;
+  font-weight: 600;
+  border-width: 2px;
 }
 .btn-outline-danger:hover {
   color: #fff;
@@ -98,6 +151,9 @@ h1.display-6 {
 .btn-secondary {
   background-color: var(--muted);
   border-color: var(--muted);
+  font-weight: 600;
+  padding: 0.65rem 1.5rem;
+}
 }
 .btn-secondary:hover {
   background-color: #4a5568;
@@ -105,13 +161,24 @@ h1.display-6 {
 }
 
 /* Inputs */
-.form-control {
+.form-control,
+.form-select {
   border-color: var(--border);
+  border-width: 2px;
   background-color: #fcfdff;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  transition: all 0.2s ease;
 }
-.form-control:focus {
+.form-control:focus,
+.form-select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 0.3rem rgba(59, 130, 246, 0.15);
+}
+.form-label {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.75rem;
 }
 
 /* Small text + helpers */
@@ -124,17 +191,61 @@ h1.display-6 {
 
 /* Spacing tweaks */
 #auth-area .card-body {
-  padding: 1.25rem 1.25rem;
+  padding: 2rem;
 }
 
 /* Error message styling */
 .error-message {
   color: #dc3545;
-  font-weight: 600;
+  font-weight: 700;
   background-color: #f8d7da;
-  border: 1px solid #f5c2c7;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
+  border: 2px solid #f5c2c7;
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+/* Section styling */
+section {
+  margin-bottom: 2rem;
+}
+
+/* Quiz list section */
+#quiz-list-area {
+  padding-bottom: 2rem;
+}
+#quiz-list-area .row.mb-4 {
+  margin-bottom: 2rem;
+}
+#quiz-list-area h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+/* Quiz creation form */
+#quiz-create-area {
+  padding-bottom: 2rem;
+}
+#quiz-create-area .card-body {
+  padding: 2.5rem;
+}
+#quiz-create-area .form-label {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Question fields - enhanced blue outline */
+.question-field {
+  border: 2px solid var(--primary) !important;
+  border-radius: 1rem;
+  background: var(--card);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  transition: all 0.2s ease;
+}
+.question-field:hover {
+  border-color: var(--primary-600) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 /* Dark Souls death screen */
@@ -191,55 +302,87 @@ h1.display-6 {
 
 /* Table */
 .table {
-  font-size: 0.875rem;
+  font-size: 1rem;
+  font-weight: 500;
 }
 .table thead {
-  background-color: #f8f9fa;
+  background: linear-gradient(135deg, var(--primary-100), #e8f1ff);
+  font-weight: 700;
+}
+.table thead th {
+  border-bottom: 2px solid var(--primary);
+  color: var(--primary-600);
+}
+.table tbody tr {
+  transition: background 0.15s ease;
 }
 .table tbody tr:hover {
-  background-color: #f8f9fa;
+  background-color: var(--primary-100);
 }
 
 /* Question input groups */
 .input-group .btn-outline-danger {
-  border-color: var(--border);
+  border-color: #dc3545;
+  border-width: 2px;
+}
+.choice-item {
+  border: 2px solid var(--border) !important;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
 }
 
 /* Nav dropdown */
 .dropdown-menu {
-  border: 1px solid var(--border);
-  box-shadow: 0 0.25rem 0.8rem rgba(20, 40, 80, 0.06);
+  border: 2px solid var(--primary-100);
+  box-shadow: 0 4px 12px rgba(20, 40, 80, 0.1);
+  border-radius: 0.75rem;
+}
+.dropdown-menu .dropdown-item {
+  padding: 0.75rem 1.25rem;
+  font-weight: 500;
+}
+.dropdown-menu .dropdown-item:hover {
+  background-color: var(--primary-100);
+  color: var(--primary-600);
 }
 
 /* Create quiz card */
 .card-create-quiz {
-  opacity: 0.6;
+  opacity: 0.75;
   background: linear-gradient(135deg, #f0f4f8, #f5f8fb) !important;
-  border: 2px dashed var(--border) !important;
+  border: 3px dashed var(--primary-100) !important;
   transition:
-    opacity 0.15s ease,
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  position: relative;
 }
 
 .card-create-quiz:hover {
   opacity: 1;
-  transform: translateY(-2px);
-  box-shadow: 0 0.9rem 1.6rem rgba(20, 40, 80, 0.08);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.15);
+}
+
+.card-create-quiz .display-4 {
+  font-size: 3rem;
+  color: var(--primary);
 }
 
 /* Quiz cards blue outline */
 #quiz-list .card.card-click {
-  border: 2px solid var(--primary);
+  border: 3px solid var(--primary);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
 }
 
 #quiz-list .card.card-click:hover {
   border-color: var(--primary-600);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.15);
 }
 
 /* Top accent bar under navbar */
 .accent-bar {
-  height: 2px; /* same thickness as card outline */
+  height: 3px;
   position: relative;
   background: transparent;
   overflow: hidden;
@@ -249,7 +392,7 @@ h1.display-6 {
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--primary);
+  background: linear-gradient(90deg, var(--primary), var(--primary-600));
   transform: scaleX(0);
   transform-origin: left;
 }

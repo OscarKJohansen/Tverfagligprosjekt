@@ -1052,7 +1052,6 @@ export function setupQuizEventListeners() {
     "admin-results-back-btn",
     "back-to-quizzes-btn",
     "back-to-quizzes-btn2",
-    "cancel-create-btn",
     "cancel-take-btn",
   ].forEach((id) =>
     clickHandler(id, (e) => {
