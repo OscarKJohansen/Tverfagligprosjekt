@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="no">
   <head>
     <meta charset="utf-8" />
@@ -131,14 +131,78 @@
                   rows="3"
                 ></textarea>
               </div>
+              <div class="mb-3 p-3 bg-light rounded border">
+                <label class="form-label small fw-semibold"
+                  >Quiz Thumbnail (valgfritt)</label
+                >
+                <p class="text-muted small mb-2">
+                  Velg et bilde som skal vises på quiz-kortet på hovedsiden
+                </p>
+                <div class="input-group input-group-sm mb-2">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="quiz-thumbnail-search"
+                    placeholder="Søk etter bilde (f.eks. 'quiz', 'læring', etc.)..."
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    id="quiz-thumbnail-search-btn"
+                    title="Søk etter bilder"
+                  >
+                    Søk
+                  </button>
+                </div>
+                <div class="thumbnail-search-status small text-muted"></div>
+                <div class="thumbnail-search-results-container d-none mt-2">
+                  <div class="thumbnail-grid"></div>
+                </div>
+                <div class="selected-thumbnail-display d-none mt-2">
+                  <div class="alert alert-info py-2 px-3 mb-0">
+                    <small><strong>Valgt thumbnail:</strong></small>
+                    <div
+                      class="selected-thumbnail-preview mt-2"
+                      style="
+                        max-width: 150px;
+                        max-height: 100px;
+                        border-radius: 0.25rem;
+                        overflow: hidden;
+                      "
+                    >
+                      <img
+                        style="width: 100%; height: 100%; object-fit: cover"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger remove-thumbnail-btn mt-2"
+                    >
+                      Fjern thumbnail
+                    </button>
+                  </div>
+                  <input type="hidden" id="quiz-thumbnail-url" />
+                </div>
+              </div>
               <div id="questions-container" class="mb-3"></div>
-              <button
-                type="button"
-                id="add-question-btn"
-                class="btn btn-secondary mb-3"
-              >
-                Legg til spørsmål
-              </button>
+              <div class="d-flex gap-2 mb-3">
+                <button
+                  type="button"
+                  id="add-question-btn"
+                  class="btn btn-secondary"
+                >
+                  Legg til spørsmål
+                </button>
+                <button
+                  type="button"
+                  id="add-movie-rating-btn"
+                  class="btn btn-outline-primary"
+                  data-bs-toggle="modal"
+                  data-bs-target="#movieRatingModal"
+                >
+                  Legg til filmrating
+                </button>
+              </div>
               <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                   Publiser quiz
@@ -250,6 +314,167 @@
           <!-- Results table loaded here -->
         </div>
       </section>
+
+      <!-- Movie Rating Modal -->
+      <div
+        class="modal fade"
+        id="movieRatingModal"
+        tabindex="-1"
+        aria-labelledby="movieRatingModalLabel"
+        aria-hidden="true"
+      >
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="movieRatingModalLabel">
+                Legg til filmrating-spørsmål
+              </h5>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
+            </div>
+            <div class="modal-body">
+              <form id="movie-rating-form">
+                <div class="mb-3">
+                  <label for="movie-title-input" class="form-label"
+                    >Filmtittel</label
+                  >
+                  <div class="position-relative">
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="movie-title-input"
+                      placeholder="f.eks. Inception, The Matrix..."
+                      required
+                      autocomplete="off"
+                    />
+                    <div
+                      id="movie-suggestions-dropdown"
+                      class="position-absolute w-100 bg-white border rounded mt-1 d-none"
+                      style="
+                        top: 100%;
+                        z-index: 1000;
+                        max-height: 300px;
+                        overflow-y: auto;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                      "
+                    ></div>
+                  </div>
+                  <small class="text-muted"
+                    >Skriv den engelske filmtittelen for å se forslag</small
+                  >
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Spørsmålstype</label>
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="radio"
+                      name="movie-question-type"
+                      id="movie-multiple-choice"
+                      value="multiple_choice"
+                      checked
+                    />
+                    <label class="form-check-label" for="movie-multiple-choice">
+                      Flervalg (4 alternativer)
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="radio"
+                      name="movie-question-type"
+                      id="movie-text-answer"
+                      value="text"
+                    />
+                    <label class="form-check-label" for="movie-text-answer">
+                      Tekstsvar (±0.2 toleranse)
+                    </label>
+                  </div>
+                </div>
+                <div
+                  id="movie-rating-status"
+                  class="text-muted small mb-2"
+                ></div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                id="movie-rating-submit-btn"
+                class="btn btn-primary"
+              >
+                Generer spørsmål
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Movie Rating Edit Modal -->
+      <div
+        class="modal fade"
+        id="movieRatingEditModal"
+        tabindex="-1"
+        aria-labelledby="movieRatingEditModalLabel"
+        aria-hidden="true"
+      >
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="movieRatingEditModalLabel">
+                Rediger svaralternativer
+              </h5>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
+            </div>
+            <div class="modal-body">
+              <div id="movie-rating-question" class="mb-3 p-2 bg-light rounded">
+                <small class="text-muted"><strong>Spørsmål:</strong></small>
+                <div id="movie-question-text" class="small mt-1"></div>
+              </div>
+              <form id="movie-rating-edit-form">
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold"
+                    >Svaralternativer</label
+                  >
+                  <div id="movie-rating-answers-container"></div>
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                id="movie-rating-confirm-btn"
+                class="btn btn-primary"
+              >
+                Legg til spørsmål
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

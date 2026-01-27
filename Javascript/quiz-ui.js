@@ -8,9 +8,16 @@ import {
   fetchAllAnswers,
   fetchMyAnswers,
 } from "./quizzes.js";
+import { searchUnsplashImages, getAttributionHtml } from "./unsplash.js";
+import {
+  generateMovieRatingMultipleChoice,
+  generateMovieRatingTextAnswer,
+  searchMovies,
+} from "./movie-rating.js";
 
 let currentQuizId = null;
 let currentQuizParticipantName = null;
+let currentMovieRatingData = null; // Store current movie rating for editing
 
 const AREAS = [
   "app-area",
@@ -82,18 +89,28 @@ async function loadQuizzes(category = "newest") {
       col.innerHTML = `
         <div class="card card-elev card-click h-100" data-quiz-id="${
           q.id
-        }" style="height: 200px">
-          <div class="card-body">
+        }" style="height: 200px; cursor: pointer; position: relative; overflow: hidden;">
+          ${
+            q.thumbnail_url
+              ? `
+            <img src="${escapeHtml(q.thumbnail_url)}&w=400&h=225&fit=crop" 
+                 alt="${escapeHtml(q.title)}" 
+                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" />
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4);"></div>
+          `
+              : ""
+          }
+          <div class="card-body" style="${q.thumbnail_url ? "position: relative; z-index: 1; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.5);" : ""}">
             <h5 class="card-title">${escapeHtml(q.title)}</h5>
-            <p class="card-text text-muted small">${escapeHtml(
-              q.description || ""
+            <p class="card-text ${q.thumbnail_url ? "text-white-50" : "text-muted"} small">${escapeHtml(
+              q.description || "",
             )}</p>
-            <small class="text-muted d-block">Opprettet: ${new Date(
-              q.created_at
+            <small class="${q.thumbnail_url ? "text-white-50" : "text-muted"} d-block">Opprettet: ${new Date(
+              q.created_at,
             ).toLocaleDateString("no-NO")}</small>
             ${
               typeof q.answers_count === "number"
-                ? `<small class="text-muted">Svar: ${q.answers_count}</small>`
+                ? `<small class="${q.thumbnail_url ? "text-white-50" : "text-muted"}">Svar: ${q.answers_count}</small>`
                 : ""
             }
           </div>
@@ -111,6 +128,7 @@ async function loadQuizzes(category = "newest") {
 export function showQuizCreate() {
   toggleAreas(["app-area", "quiz-create-area"]);
   initQuestionFields();
+  setupMovieSearch();
 }
 
 function initQuestionFields() {
@@ -138,6 +156,33 @@ function addQuestionField() {
         <option value="multiple_choice">Flervalg</option>
       </select>
     </div>
+    
+    <!-- Image Search Section -->
+    <div class="image-search-section mb-2 p-2 bg-light rounded">
+      <label class="form-label small fw-semibold">Legg til bilde fra Unsplash (valgfritt)</label>
+      <div class="input-group input-group-sm mb-2">
+        <input type="text" class="form-control image-search-input" placeholder="Søk etter bilde (f.eks. 'katt', 'rom', etc.)..." />
+        <button type="button" class="btn btn-outline-primary search-image-btn" title="Søk etter bilder">
+          🔍 Søk
+        </button>
+      </div>
+      <div class="image-search-status small text-muted"></div>
+      <div class="image-search-results-container d-none mt-2">
+        <div class="image-grid"></div>
+        <div class="image-attribution small text-muted mt-2"></div>
+      </div>
+      <div class="selected-image-display d-none mt-2">
+        <div class="alert alert-info py-2 px-3 mb-0">
+          <small><strong>Valgt bilde:</strong></small>
+          <div class="selected-image-preview mt-2" style="max-width: 150px; max-height: 100px; border-radius: 0.25rem; overflow: hidden;">
+            <img style="width: 100%; height: 100%; object-fit: cover;" />
+          </div>
+          <div class="selected-image-attribution mt-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-danger remove-image-btn mt-2">Fjern bilde</button>
+        </div>
+      </div>
+    </div>
+    
     <div class="text-answer-container">
       <label class="form-label small">Riktig svar</label>
       <input type="text" class="form-control form-control-sm correct-text-answer" placeholder="Riktig svar (ikke sensitivt for stor/små bokstaver)..." required />
@@ -182,6 +227,9 @@ function addQuestionField() {
     updateQuestionLabels();
   });
 
+  // Setup image search
+  setupImageSearch(div);
+
   container.appendChild(div);
 }
 
@@ -200,12 +248,12 @@ function addChoiceField(questionDiv) {
       <input type="radio" class="form-check-input mt-0 correct-choice-radio" name="correct_${Date.now()}_${choiceIndex}" title="Marker som riktig svar" />
       <label class="ms-1 small">Riktig</label>
     </div>
-    <button type="button" class="btn btn-outline-danger remove-choice-btn">×</button>
+    <button type="button" class="btn btn-outline-danger remove-choice-btn">Fjern</button>
   `;
 
   // Update radio name to be unique per question
   const questionIndex = Array.from(
-    document.querySelectorAll(".question-field")
+    document.querySelectorAll(".question-field"),
   ).indexOf(questionDiv);
   choiceDiv.querySelectorAll(".correct-choice-radio").forEach((radio) => {
     radio.name = `correct_q${questionIndex}`;
@@ -225,7 +273,7 @@ function addChoiceField(questionDiv) {
 
 function updateChoiceRadioNames(questionDiv) {
   const questionIndex = Array.from(
-    document.querySelectorAll(".question-field")
+    document.querySelectorAll(".question-field"),
   ).indexOf(questionDiv);
   questionDiv.querySelectorAll(".correct-choice-radio").forEach((radio) => {
     radio.name = `correct_q${questionIndex}`;
@@ -238,6 +286,402 @@ function updateQuestionLabels() {
   Array.from(container.children).forEach((div, i) => {
     const label = div.querySelector("label");
     if (label) label.textContent = `Spørsmål ${i + 1}`;
+  });
+}
+
+/**
+ * Handle Movie Rating question generation
+ */
+async function handleMovieRatingGeneration() {
+  const movieTitle = document.getElementById("movie-title-input")?.value.trim();
+  const questionType = document.querySelector(
+    'input[name="movie-question-type"]:checked',
+  )?.value;
+  const statusEl = document.getElementById("movie-rating-status");
+
+  if (!movieTitle) {
+    statusEl.textContent = "Vennligst skriv inn en filmtittel.";
+    statusEl.className = "text-danger small mb-2";
+    return;
+  }
+
+  statusEl.textContent = "Genererer spørsmål...";
+  statusEl.className = "text-muted small mb-2";
+
+  try {
+    let questionData;
+    if (questionType === "multiple_choice") {
+      questionData = await generateMovieRatingMultipleChoice(movieTitle);
+      // Store for editing and show edit modal
+      currentMovieRatingData = questionData;
+      showMovieRatingEditModal(questionData);
+      statusEl.textContent = "";
+    } else {
+      questionData = await generateMovieRatingTextAnswer(movieTitle);
+      // For text answers, add directly without editing
+      addMovieRatingQuestionField(questionData);
+      statusEl.textContent = "Spørsmål lagt til!";
+      statusEl.className = "text-success small mb-2";
+
+      // Reset form and close modal
+      setTimeout(() => {
+        document.getElementById("movie-rating-form").reset();
+        const modal = bootstrap.Modal.getInstance(
+          document.getElementById("movieRatingModal"),
+        );
+        modal?.hide();
+      }, 500);
+    }
+  } catch (error) {
+    console.error("Movie rating generation error:", error);
+    statusEl.textContent =
+      error.message || "Feil ved generering av spørsmål. Prøv igjen.";
+    statusEl.className = "text-danger small mb-2";
+  }
+}
+
+/**
+ * Show the edit modal for movie rating answers
+ */
+function showMovieRatingEditModal(questionData) {
+  const questionText = document.getElementById("movie-question-text");
+  const answersContainer = document.getElementById(
+    "movie-rating-answers-container",
+  );
+
+  questionText.textContent = questionData.question;
+
+  // Find the correct answer index
+  const answers = questionData.answers.map((ans) => ans);
+  const correctIndex = answers.indexOf(questionData.correctAnswer);
+
+  // Create editable fields
+  answersContainer.innerHTML = answers
+    .map(
+      (answer, index) => `
+    <div class="mb-2">
+      <div class="d-flex gap-2 align-items-center">
+        <span class="badge ${index === correctIndex ? "bg-success" : "bg-light text-dark"}" style="min-width: 50px;">
+          ${index === correctIndex ? "Riktig" : "Feil"}
+        </span>
+        <input type="text" 
+               class="form-control form-control-sm movie-answer-input" 
+               value="${answer}" 
+               data-index="${index}"
+               ${index === correctIndex ? "disabled" : ""}
+               style="${index === correctIndex ? "background-color: #e8f5e9;" : ""}" />
+      </div>
+    </div>
+  `,
+    )
+    .join("");
+
+  // Close the generation modal and open edit modal
+  const generationModal = bootstrap.Modal.getInstance(
+    document.getElementById("movieRatingModal"),
+  );
+  generationModal?.hide();
+
+  const editModal = new bootstrap.Modal(
+    document.getElementById("movieRatingEditModal"),
+  );
+  editModal.show();
+}
+
+/**
+ * Handle confirmation of edited movie rating answers
+ */
+function handleMovieRatingConfirm() {
+  if (!currentMovieRatingData) return;
+
+  const inputs = document.querySelectorAll(".movie-answer-input");
+  const updatedAnswers = [];
+
+  inputs.forEach((input) => {
+    const value = input.value.trim();
+    if (value) {
+      updatedAnswers.push(value);
+    }
+  });
+
+  if (updatedAnswers.length !== 4) {
+    alert("Alle fire alternativer må fylles ut.");
+    return;
+  }
+
+  // Update the question data with edited answers
+  const updatedQuestionData = {
+    ...currentMovieRatingData,
+    answers: updatedAnswers,
+  };
+
+  addMovieRatingQuestionField(updatedQuestionData);
+
+  // Close edit modal
+  const editModal = bootstrap.Modal.getInstance(
+    document.getElementById("movieRatingEditModal"),
+  );
+  editModal?.hide();
+
+  // Reset and close generation modal
+  setTimeout(() => {
+    document.getElementById("movie-rating-form").reset();
+    document.getElementById("movie-rating-status").textContent =
+      "Spørsmål lagt til!";
+    document.getElementById("movie-rating-status").className =
+      "text-success small mb-2";
+    currentMovieRatingData = null;
+  }, 300);
+}
+
+/**
+ * Add a movie rating question to the questions container
+ * @param {Object} questionData - Data returned from movie-rating module
+ */
+function addMovieRatingQuestionField(questionData) {
+  const container = document.getElementById("questions-container");
+  if (!container) return;
+
+  const index = container.children.length;
+  const div = document.createElement("div");
+  div.className = "mb-3 p-3 border rounded question-field";
+  div.dataset.isMovieRating = "true";
+  div.dataset.questionType = questionData.type;
+  div.dataset.questionText = questionData.question;
+
+  if (questionData.type === "multiple_choice") {
+    div.dataset.answers = JSON.stringify(questionData.answers);
+    div.dataset.correctAnswer = questionData.correctAnswer;
+
+    div.innerHTML = `
+      <label class="form-label fw-semibold">Spørsmål ${index + 1} (Filmrating)</label>
+      <div class="mb-2 p-2 bg-light rounded">
+        <small class="text-muted"><strong>Spørsmål:</strong> ${escapeHtml(questionData.question)}</small>
+      </div>
+      <div class="mb-2">
+        <small><strong>Alternativer:</strong></small>
+        <div class="choices-display">
+          ${questionData.answers.map((ans, i) => `<div class="form-check"><label class="form-check-label"><small>${ans}${ans === questionData.correctAnswer ? " (korrekt)" : ""}</small></label></div>`).join("")}
+        </div>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-danger remove-question-btn">Fjern spørsmål</button>
+    `;
+  } else {
+    div.dataset.correctAnswer = questionData.correctAnswer;
+    div.dataset.acceptedRange = questionData.acceptedRange;
+
+    div.innerHTML = `
+      <label class="form-label fw-semibold">Spørsmål ${index + 1} (Filmrating)</label>
+      <div class="mb-2 p-2 bg-light rounded">
+        <small class="text-muted"><strong>Spørsmål:</strong> ${escapeHtml(questionData.question)}</small>
+      </div>
+      <div class="mb-2">
+        <small><strong>Korrekt svar:</strong> ${questionData.correctAnswer} (toleranse: ±${questionData.acceptedRange})</small>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-danger remove-question-btn">Fjern spørsmål</button>
+    `;
+  }
+
+  div.querySelector(".remove-question-btn").addEventListener("click", () => {
+    div.remove();
+    updateQuestionLabels();
+  });
+
+  container.appendChild(div);
+  updateQuestionLabels();
+}
+
+/**
+ * Setup image search functionality for a question field
+ */
+function setupImageSearch(questionDiv) {
+  const searchBtn = questionDiv.querySelector(".search-image-btn");
+  const searchInput = questionDiv.querySelector(".image-search-input");
+  const statusEl = questionDiv.querySelector(".image-search-status");
+  const resultsContainer = questionDiv.querySelector(
+    ".image-search-results-container",
+  );
+  const imageGrid = questionDiv.querySelector(".image-grid");
+  const selectedImageDisplay = questionDiv.querySelector(
+    ".selected-image-display",
+  );
+  const removeImageBtn = questionDiv.querySelector(".remove-image-btn");
+
+  // Store selected image data
+  let selectedImage = null;
+
+  // Search button click handler
+  searchBtn.addEventListener("click", async () => {
+    const query = searchInput.value.trim();
+    if (!query) {
+      statusEl.textContent = "Vennligst skriv et søkeord.";
+      return;
+    }
+
+    statusEl.textContent = "Søker bilder...";
+    imageGrid.innerHTML = "";
+    resultsContainer.classList.add("d-none");
+
+    try {
+      const images = await searchUnsplashImages(query, 12);
+
+      if (images.length === 0) {
+        statusEl.textContent = "Ingen bilder funnet.";
+        return;
+      }
+
+      statusEl.textContent = `Fant ${images.length} bilder.`;
+      renderImageGrid(imageGrid, images, (image) => {
+        selectImage(image, questionDiv);
+        selectedImage = image;
+      });
+      resultsContainer.classList.remove("d-none");
+    } catch (error) {
+      console.error("Image search error:", error);
+      statusEl.textContent = "Feil ved søking etter bilder.";
+    }
+  });
+
+  // Allow Enter key to search
+  searchInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      searchBtn.click();
+    }
+  });
+
+  // Remove image button
+  removeImageBtn.addEventListener("click", () => {
+    selectedImage = null;
+    selectedImageDisplay.classList.add("d-none");
+    questionDiv.dataset.selectedImageUrl = "";
+    questionDiv.dataset.selectedImageAttribution = "";
+  });
+}
+
+/**
+ * Render image grid in the results container
+ */
+function renderImageGrid(container, images, onSelectCallback) {
+  container.innerHTML = "";
+  container.className = "image-grid";
+
+  const gridHtml = images
+    .map(
+      (img, index) => `
+    <div class="image-grid-item" data-image-index="${index}" style="cursor: pointer; position: relative; overflow: hidden; border-radius: 0.25rem; background: #f0f0f0;">
+      <img src="${escapeHtml(img.url)}" 
+           alt="${escapeHtml(img.alt)}" 
+           style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s ease;"
+           loading="lazy" />
+      <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0); transition: background 0.2s ease;" class="image-overlay"></div>
+    </div>
+  `,
+    )
+    .join("");
+
+  container.innerHTML = gridHtml;
+
+  // Add click handlers to image items
+  container.querySelectorAll(".image-grid-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const index = parseInt(item.dataset.imageIndex);
+      onSelectCallback(images[index]);
+    });
+    item.addEventListener("mouseenter", () => {
+      const overlay = item.querySelector(".image-overlay");
+      overlay.style.background = "rgba(0,0,0,0.3)";
+    });
+    item.addEventListener("mouseleave", () => {
+      const overlay = item.querySelector(".image-overlay");
+      overlay.style.background = "rgba(0,0,0,0)";
+    });
+  });
+}
+
+/**
+ * Handle image selection
+ */
+function selectImage(image, questionDiv) {
+  const selectedImageDisplay = questionDiv.querySelector(
+    ".selected-image-display",
+  );
+  const previewImg = selectedImageDisplay.querySelector(
+    ".selected-image-preview img",
+  );
+  const attributionEl = selectedImageDisplay.querySelector(
+    ".selected-image-attribution",
+  );
+
+  previewImg.src = image.url;
+  previewImg.alt = image.alt;
+  attributionEl.innerHTML = getAttributionHtml(image);
+
+  selectedImageDisplay.classList.remove("d-none");
+
+  // Store image data in the question div
+  questionDiv.dataset.selectedImageUrl = image.rawUrl;
+  questionDiv.dataset.selectedImageAttribution = getAttributionHtml(image);
+}
+
+/**
+ * Setup thumbnail image search for quiz
+ */
+function setupThumbnailSearch() {
+  const searchBtn = document.getElementById("quiz-thumbnail-search-btn");
+  const searchInput = document.getElementById("quiz-thumbnail-search");
+  const statusEl = document.querySelector(".thumbnail-search-status");
+  const resultsContainer = document.querySelector(
+    ".thumbnail-search-results-container",
+  );
+  const imageGrid = document.querySelector(".thumbnail-grid");
+  const selectedDisplay = document.querySelector(".selected-thumbnail-display");
+  const previewImg = selectedDisplay.querySelector(
+    ".selected-thumbnail-preview img",
+  );
+  const removeBtn = document.querySelector(".remove-thumbnail-btn");
+
+  searchBtn.addEventListener("click", async () => {
+    const query = searchInput.value.trim();
+    if (!query) {
+      statusEl.textContent = "Vennligst skriv et søkeord.";
+      return;
+    }
+
+    statusEl.textContent = "Søker bilder...";
+    imageGrid.innerHTML = "";
+    resultsContainer.classList.add("d-none");
+
+    try {
+      const images = await searchUnsplashImages(query, 12);
+
+      if (images.length === 0) {
+        statusEl.textContent = "Ingen bilder funnet.";
+        return;
+      }
+
+      statusEl.textContent = `Fant ${images.length} bilder.`;
+      renderImageGrid(imageGrid, images, (image) => {
+        previewImg.src = image.url;
+        previewImg.alt = image.alt;
+        selectedDisplay.classList.remove("d-none");
+        document.getElementById("quiz-thumbnail-url").value = image.rawUrl;
+      });
+      resultsContainer.classList.remove("d-none");
+    } catch (error) {
+      console.error("Thumbnail search error:", error);
+      statusEl.textContent = "Feil ved søking etter bilder.";
+    }
+  });
+
+  searchInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      searchBtn.click();
+    }
+  });
+
+  removeBtn.addEventListener("click", () => {
+    selectedDisplay.classList.add("d-none");
+    document.getElementById("quiz-thumbnail-url").value = "";
   });
 }
 
@@ -258,10 +702,10 @@ async function loadQuizForTaking(quizId, needsName = false) {
   currentQuizData = quizData;
 
   document.getElementById("quiz-take-title").textContent = escapeHtml(
-    quizData.title
+    quizData.title,
   );
   document.getElementById("quiz-take-description").textContent = escapeHtml(
-    quizData.description || ""
+    quizData.description || "",
   );
 
   document
@@ -280,6 +724,16 @@ async function loadQuizForTaking(quizId, needsName = false) {
           q.question_type === "multiple_choice" ||
           (q.choices && q.choices.length > 0);
 
+        // Image section if available
+        const imageSection = q.image_url
+          ? `
+          <div class="mb-3">
+            <img src="${q.image_url}&w=600&h=337&fit=crop" alt="${escapeHtml(q.question_text)}" style="max-width: 100%; height: auto; border-radius: 0.5rem;" />
+            ${q.image_attribution ? `<small class="text-muted d-block mt-1">${q.image_attribution}</small>` : ""}
+          </div>
+        `
+          : "";
+
         if (isMultipleChoice && q.choices && q.choices.length > 0) {
           // Render radio buttons for multiple-choice questions
           const choicesHtml = q.choices
@@ -297,7 +751,7 @@ async function loadQuizForTaking(quizId, needsName = false) {
                 <label class="form-check-label" for="choice_${choice.id}">
                   ${escapeHtml(choice.choice_text)}
                 </label>
-              </div>`
+              </div>`,
             )
             .join("");
           return `
@@ -305,8 +759,9 @@ async function loadQuizForTaking(quizId, needsName = false) {
               q.id
             }" data-question-type="multiple_choice">
               <label class="form-label fw-semibold">${escapeHtml(
-                q.question_text
+                q.question_text,
               )}</label>
+              ${imageSection}
               ${choicesHtml}
               <div class="answer-feedback mt-2" style="display: none;"></div>
             </div>`;
@@ -317,6 +772,7 @@ async function loadQuizForTaking(quizId, needsName = false) {
               q.id
             }" data-question-type="text">
               <label class="form-label">${escapeHtml(q.question_text)}</label>
+              ${imageSection}
               <input type="text" class="form-control quiz-answer-input" data-question-id="${
                 q.id
               }" placeholder="Ditt svar..." required />
@@ -363,7 +819,7 @@ function renderAnswers(containerId, answers, includeName = false) {
       const quizAnswers = Object.values(questions).flatMap((q) => q.answers);
       const totalAnswers = quizAnswers.length;
       const correctAnswers = quizAnswers.filter(
-        (a) => a.is_correct === true
+        (a) => a.is_correct === true,
       ).length;
 
       return `
@@ -384,21 +840,21 @@ function renderAnswers(containerId, answers, includeName = false) {
             ${
               includeName
                 ? `<button class="btn btn-sm btn-outline-primary download-quiz-csv-btn" data-quiz-title="${escapeHtml(
-                    title
+                    title,
                   ).replace(/"/g, "&quot;")}">Last ned CSV</button>`
                 : ""
             }
           </div>
           
           <div class="accordion" id="accordion_${containerId}_${title.replace(
-        /\s+/g,
-        "_"
-      )}">
+            /\s+/g,
+            "_",
+          )}">
             ${Object.entries(questions)
               .map(([qId, qData], qIndex) => {
                 const questionAnswers = qData.answers;
                 const correctCount = questionAnswers.filter(
-                  (a) => a.is_correct === true
+                  (a) => a.is_correct === true,
                 ).length;
                 const correctBadge =
                   correctCount > 0
@@ -410,15 +866,15 @@ function renderAnswers(containerId, answers, includeName = false) {
                   <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse_${containerId}_${qId}" aria-expanded="false">
                       <span class="fw-semibold">${escapeHtml(
-                        qData.questionText
+                        qData.questionText,
                       )}</span>
                       ${correctBadge}
                     </button>
                   </h2>
                   <div id="collapse_${containerId}_${qId}" class="accordion-collapse collapse" data-bs-parent="#accordion_${containerId}_${title.replace(
-                  /\s+/g,
-                  "_"
-                )}">
+                    /\s+/g,
+                    "_",
+                  )}">
                     <div class="accordion-body p-0">
                       <div class="table-responsive">
                         <table class="table table-sm mb-0">
@@ -432,7 +888,7 @@ function renderAnswers(containerId, answers, includeName = false) {
                               <th class="px-3 py-2">Svar</th>
                               ${
                                 questionAnswers.some(
-                                  (a) => a.is_correct !== null
+                                  (a) => a.is_correct !== null,
                                 )
                                   ? '<th class="px-3 py-2 text-center" style="width: 80px;">Status</th>'
                                   : ""
@@ -458,12 +914,12 @@ function renderAnswers(containerId, answers, includeName = false) {
                                       includeName
                                         ? `<td class="px-3 py-2"><small>${escapeHtml(
                                             ans.participantName ||
-                                              ans.user_id?.substring(0, 8)
+                                              ans.user_id?.substring(0, 8),
                                           )}</small></td>`
                                         : ""
                                     }
                                     <td class="px-3 py-2"><small>${escapeHtml(
-                                      ans.answer_text
+                                      ans.answer_text,
                                     )}</small></td>
                                     ${
                                       ans.is_correct !== null
@@ -471,7 +927,7 @@ function renderAnswers(containerId, answers, includeName = false) {
                                         : ""
                                     }
                                     <td class="px-3 py-2 text-muted"><small>${new Date(
-                                      ans.submitted_at
+                                      ans.submitted_at,
                                     ).toLocaleString("no-NO")}</small></td>
                                   </tr>
                                 `;
@@ -499,17 +955,17 @@ function renderAnswers(containerId, answers, includeName = false) {
       btn.addEventListener("click", () => {
         const quizTitle = btn.dataset.quizTitle;
         const quizAnswers = Object.entries(grouped).find(
-          ([title]) => title === quizTitle
+          ([title]) => title === quizTitle,
         )?.[1];
 
         if (quizAnswers) {
           const flatAnswers = Object.values(quizAnswers).flatMap(
-            (q) => q.answers
+            (q) => q.answers,
           );
           const csvContent = answersToCSV(quizTitle, flatAnswers);
           const filename = `${quizTitle.replace(
             /[^a-z0-9æøå]/gi,
-            "_"
+            "_",
           )}_svar.csv`;
           downloadCSV(filename, csvContent);
         }
@@ -529,12 +985,12 @@ export async function showResults() {
   // Answers to my quizzes
   const myQuizResultsCard = document.getElementById("my-quiz-results-card");
   const myQuizResultsContainer = document.getElementById(
-    "my-quiz-results-container"
+    "my-quiz-results-container",
   );
 
   const allAnswersResult = await fetchAllAnswers();
   const myQuizAnswers = (allAnswersResult.answers || []).filter(
-    (ans) => ans.questions?.quizzes?.created_by === currentUser?.id
+    (ans) => ans.questions?.quizzes?.created_by === currentUser?.id,
   );
 
   if (myQuizAnswers.length > 0) {
@@ -551,7 +1007,7 @@ export async function showAdminResults() {
   renderAnswers(
     "admin-results-container",
     allAnswersResult.answers || [],
-    true
+    true,
   );
 }
 
@@ -602,7 +1058,7 @@ export function setupQuizEventListeners() {
     clickHandler(id, (e) => {
       e.preventDefault();
       showQuizList();
-    })
+    }),
   );
   clickHandler("create-quiz-btn", () => showQuizCreate());
   clickHandler("create-quiz-card", () => {
@@ -615,6 +1071,16 @@ export function setupQuizEventListeners() {
   clickHandler("add-question-btn", () => {
     addQuestionField();
     updateQuestionLabels();
+  });
+
+  // Movie Rating button handler
+  clickHandler("movie-rating-submit-btn", async () => {
+    await handleMovieRatingGeneration();
+  });
+
+  // Movie Rating confirm button
+  clickHandler("movie-rating-confirm-btn", () => {
+    handleMovieRatingConfirm();
   });
 
   clickHandler("quiz-name-confirm-btn", () => {
@@ -638,6 +1104,37 @@ export function setupQuizEventListeners() {
       // Collect questions with their type and choices
       const questions = [];
       document.querySelectorAll(".question-field").forEach((questionDiv) => {
+        // Handle movie rating questions
+        if (questionDiv.dataset.isMovieRating === "true") {
+          const movieType = questionDiv.dataset.questionType;
+          const questionText = questionDiv.dataset.questionText;
+
+          if (movieType === "multiple_choice") {
+            const answers = JSON.parse(questionDiv.dataset.answers);
+            const correctAnswer = questionDiv.dataset.correctAnswer;
+
+            const questionData = {
+              text: questionText,
+              type: "multiple_choice",
+              choices: answers.map((ans) => ({
+                text: ans,
+                isCorrect: ans === correctAnswer,
+              })),
+            };
+            questions.push(questionData);
+          } else {
+            const correctAnswer = questionDiv.dataset.correctAnswer;
+            const questionData = {
+              text: questionText,
+              type: "text",
+              correctAnswer: correctAnswer,
+            };
+            questions.push(questionData);
+          }
+          return;
+        }
+
+        // Handle regular questions
         const questionText = questionDiv
           .querySelector(".question-input")
           ?.value.trim();
@@ -650,6 +1147,9 @@ export function setupQuizEventListeners() {
           text: questionText,
           type: questionType,
           choices: [],
+          imageUrl: questionDiv.dataset.selectedImageUrl || null,
+          imageAttribution:
+            questionDiv.dataset.selectedImageAttribution || null,
         };
 
         if (questionType === "multiple_choice") {
@@ -711,7 +1211,14 @@ export function setupQuizEventListeners() {
       }
 
       statusEl && (statusEl.textContent = "Oppretter quiz...");
-      const quiz = await createQuiz(title, description, questions);
+      const thumbnailUrl =
+        document.getElementById("quiz-thumbnail-url")?.value || null;
+      const quiz = await createQuiz(
+        title,
+        description,
+        questions,
+        thumbnailUrl,
+      );
       statusEl &&
         (statusEl.textContent = quiz
           ? "Quiz opprettet!"
@@ -764,7 +1271,7 @@ export function setupQuizEventListeners() {
       const success = await submitAnswers(
         currentQuizId,
         answers,
-        currentQuizParticipantName
+        currentQuizParticipantName,
       );
 
       if (success) {
@@ -789,7 +1296,7 @@ export function setupQuizEventListeners() {
         // Show feedback for each answered question
         Object.entries(answerDetails).forEach(([qid, detail]) => {
           const container = document.querySelector(
-            `.question-container[data-question-id="${qid}"]`
+            `.question-container[data-question-id="${qid}"]`,
           );
           const feedbackEl = container?.querySelector(".answer-feedback");
           if (feedbackEl) {
@@ -828,6 +1335,88 @@ export function setupQuizEventListeners() {
         statusEl && (statusEl.textContent = "Feil ved sending av svar.");
       }
     });
+
+  // Setup thumbnail search
+  setupThumbnailSearch();
+}
+
+/**
+ * Setup movie title autocomplete search
+ */
+function setupMovieSearch() {
+  const movieTitleInput = document.getElementById("movie-title-input");
+  const suggestionsDropdown = document.getElementById(
+    "movie-suggestions-dropdown",
+  );
+  let searchTimeout;
+
+  if (!movieTitleInput) return;
+
+  movieTitleInput.addEventListener("input", async (e) => {
+    const query = e.target.value.trim();
+
+    // Clear previous timeout
+    clearTimeout(searchTimeout);
+
+    if (!query || query.length < 2) {
+      suggestionsDropdown.classList.add("d-none");
+      return;
+    }
+
+    // Debounce search
+    searchTimeout = setTimeout(async () => {
+      try {
+        const results = await searchMovies(query);
+
+        if (results.length === 0) {
+          suggestionsDropdown.innerHTML =
+            '<div class="p-2 text-muted small">Ingen filmer funnet</div>';
+          suggestionsDropdown.classList.remove("d-none");
+          return;
+        }
+
+        suggestionsDropdown.innerHTML = results
+          .map(
+            (movie) => `
+          <div class="movie-suggestion p-2 cursor-pointer" 
+               data-title="${escapeHtml(movie.title)}"
+               style="cursor: pointer; border-bottom: 1px solid #e6eef8; transition: background 0.15s;">
+            <div class="fw-semibold small">${escapeHtml(movie.title)}</div>
+            <small class="text-muted">${movie.year || "N/A"}</small>
+          </div>
+        `,
+          )
+          .join("");
+
+        suggestionsDropdown.classList.remove("d-none");
+
+        // Add click handlers to suggestions
+        suggestionsDropdown
+          .querySelectorAll(".movie-suggestion")
+          .forEach((item) => {
+            item.addEventListener("click", () => {
+              movieTitleInput.value = item.dataset.title;
+              suggestionsDropdown.classList.add("d-none");
+            });
+            item.addEventListener("mouseenter", () => {
+              item.style.background = "#f0f4f8";
+            });
+            item.addEventListener("mouseleave", () => {
+              item.style.background = "";
+            });
+          });
+      } catch (error) {
+        console.error("Movie search error:", error);
+      }
+    }, 300);
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#movie-title-input")) {
+      suggestionsDropdown.classList.add("d-none");
+    }
+  });
 }
 
 // Convert answers to CSV format

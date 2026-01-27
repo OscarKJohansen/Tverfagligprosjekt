@@ -89,23 +89,33 @@ export async function fetchQuizWithQuestions(quizId) {
   Oppretter en ny quiz med spørsmål.
   Kun brukere med admin-rolle har lov til å gjøre dette.
 */
-export async function createQuiz(title, description, questions) {
+export async function createQuiz(
+  title,
+  description,
+  questions,
+  thumbnailUrl = null,
+) {
   const currentUser = getCurrentUser();
   const currentRole = getCurrentRole();
 
   if (!currentUser) return null;
   if (currentRole !== "admin") return null;
 
+  const quizInsertData = {
+    title,
+    description,
+    created_by: currentUser.id,
+    created_at: new Date().toISOString(),
+  };
+
+  // Only add thumbnail_url if provided (in case the column doesn't exist yet)
+  if (thumbnailUrl) {
+    quizInsertData.thumbnail_url = thumbnailUrl;
+  }
+
   const { data: quiz, error: quizError } = await supabase
     .from("quizzes")
-    .insert([
-      {
-        title,
-        description,
-        created_by: currentUser.id,
-        created_at: new Date().toISOString(),
-      },
-    ])
+    .insert([quizInsertData])
     .select()
     .single();
 
@@ -122,6 +132,14 @@ export async function createQuiz(title, description, questions) {
         question_type: typeof q === "string" ? "text" : q.type || "text",
         created_at: new Date().toISOString(),
       };
+
+      // Only add image fields if they exist (in case the columns don't exist yet)
+      if (q.imageUrl) {
+        questionData.image_url = q.imageUrl;
+      }
+      if (q.imageAttribution) {
+        questionData.image_attribution = q.imageAttribution;
+      }
 
       const { data: insertedQuestion, error: questionError } = await supabase
         .from("questions")
@@ -156,8 +174,9 @@ export async function createQuiz(title, description, questions) {
 }
 
 /*
-  Sender inn svar på en quiz.
+  Sends inn svar på en quiz.
   Tekstsvar sjekkes automatisk mot fasit hvis den finnes.
+  Filmrating-tekstsvar sjekkes med toleranse (±0.2).
 */
 export async function submitAnswers(quizId, answers, participantName = null) {
   const currentUser = getCurrentUser();
@@ -165,7 +184,7 @@ export async function submitAnswers(quizId, answers, participantName = null) {
 
   const { data: questions, error: questionsError } = await supabase
     .from("questions")
-    .select("id, question_type")
+    .select("id, question_type, question_text")
     .eq("quiz_id", quizId);
 
   if (questionsError) return false;
@@ -178,6 +197,7 @@ export async function submitAnswers(quizId, answers, participantName = null) {
     .map(Number);
 
   let correctAnswersMap = {};
+  let movieRatingQuestions = new Set(); // Track movie rating questions
 
   if (textQuestionIds.length > 0) {
     const { data: textAnswers } = await supabase
@@ -185,9 +205,14 @@ export async function submitAnswers(quizId, answers, participantName = null) {
       .select("question_id, correct_answer")
       .in("question_id", textQuestionIds);
 
-    (textAnswers || []).forEach(
-      (ta) => (correctAnswersMap[ta.question_id] = ta.correct_answer),
-    );
+    (textAnswers || []).forEach((ta) => {
+      correctAnswersMap[ta.question_id] = ta.correct_answer;
+      // Check if this is a movie rating question (correct_answer looks like a rating)
+      const rating = parseFloat(ta.correct_answer);
+      if (!isNaN(rating) && rating >= 1.0 && rating <= 10.0) {
+        movieRatingQuestions.add(ta.question_id);
+      }
+    });
   }
 
   const answersToInsert = Object.entries(answers).map(
@@ -196,9 +221,22 @@ export async function submitAnswers(quizId, answers, participantName = null) {
       let isCorrect = null;
 
       if (questionMap[qId] === "text" && correctAnswersMap[qId]) {
-        isCorrect =
-          answerText.trim().toLowerCase() ===
-          correctAnswersMap[qId].toLowerCase();
+        const correctAnswer = correctAnswersMap[qId];
+
+        if (movieRatingQuestions.has(qId)) {
+          // Movie rating: check with ±0.2 tolerance
+          const userRating = parseFloat(answerText);
+          const correctRating = parseFloat(correctAnswer);
+
+          if (!isNaN(userRating) && !isNaN(correctRating)) {
+            const difference = Math.abs(userRating - correctRating);
+            isCorrect = difference <= 0.2;
+          }
+        } else {
+          // Regular text answer: exact match (case-insensitive)
+          isCorrect =
+            answerText.trim().toLowerCase() === correctAnswer.toLowerCase();
+        }
       }
 
       return {
