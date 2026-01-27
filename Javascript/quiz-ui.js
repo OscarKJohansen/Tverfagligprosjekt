@@ -134,7 +134,7 @@ export function showQuizCreate() {
 function initQuestionFields() {
   const container = document.getElementById("questions-container");
   if (!container) return;
-  if (!container.children.length) addQuestionField();
+  // Don't add a default question - let users click "Legg til spørsmål" to add their first one
 }
 
 function addQuestionField() {
