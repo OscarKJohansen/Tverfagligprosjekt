@@ -1,5 +1,8 @@
 import { supabase } from "./auth.js";
 import { getCurrentUser, getCurrentRole } from "./state.js";
+import { updateUserPoints } from "./rankings.js";
+
+let currentViewMode = "cards"; // 'cards' or 'list'
 
 /*
   Henter alle quizer fra databasen.
@@ -192,13 +195,21 @@ export async function submitAnswers(quizId, answers, participantName = null) {
   const questionMap = {};
   questions.forEach((q) => (questionMap[q.id] = q.question_type));
 
+  // Get text question IDs
   const textQuestionIds = Object.keys(questionMap)
     .filter((id) => questionMap[id] === "text")
     .map(Number);
 
-  let correctAnswersMap = {};
-  let movieRatingQuestions = new Set(); // Track movie rating questions
+  // Get multiple choice question IDs
+  const multipleChoiceIds = Object.keys(questionMap)
+    .filter((id) => questionMap[id] === "multiple_choice")
+    .map(Number);
 
+  let correctAnswersMap = {};
+  let correctChoicesMap = {}; // For multiple choice questions
+  let movieRatingQuestions = new Set();
+
+  // Fetch correct answers for text questions
   if (textQuestionIds.length > 0) {
     const { data: textAnswers } = await supabase
       .from("text_answers")
@@ -207,11 +218,23 @@ export async function submitAnswers(quizId, answers, participantName = null) {
 
     (textAnswers || []).forEach((ta) => {
       correctAnswersMap[ta.question_id] = ta.correct_answer;
-      // Check if this is a movie rating question (correct_answer looks like a rating)
       const rating = parseFloat(ta.correct_answer);
       if (!isNaN(rating) && rating >= 1.0 && rating <= 10.0) {
         movieRatingQuestions.add(ta.question_id);
       }
+    });
+  }
+
+  // Fetch correct answers for multiple choice questions
+  if (multipleChoiceIds.length > 0) {
+    const { data: choices } = await supabase
+      .from("question_choices")
+      .select("question_id, id, choice_text")
+      .in("question_id", multipleChoiceIds)
+      .eq("is_correct", true);
+
+    (choices || []).forEach((choice) => {
+      correctChoicesMap[choice.question_id] = choice.id;
     });
   }
 
@@ -220,7 +243,14 @@ export async function submitAnswers(quizId, answers, participantName = null) {
       const qId = Number(questionId);
       let isCorrect = null;
 
-      if (questionMap[qId] === "text" && correctAnswersMap[qId]) {
+      // Handle multiple choice questions
+      if (questionMap[qId] === "multiple_choice") {
+        // answerText should be the choice ID for multiple choice
+        // Compare with the correct choice ID
+        isCorrect = correctChoicesMap[qId] === Number(answerText);
+      }
+      // Handle text questions
+      else if (questionMap[qId] === "text" && correctAnswersMap[qId]) {
         const correctAnswer = correctAnswersMap[qId];
 
         if (movieRatingQuestions.has(qId)) {
@@ -252,6 +282,25 @@ export async function submitAnswers(quizId, answers, participantName = null) {
 
   const { error } = await supabase.from("answers").insert(answersToInsert);
   if (error) return false;
+
+  // Calculate score and accuracy
+  const totalQuestions = answersToInsert.length;
+  const correctAnswers = answersToInsert.filter(
+    (a) => a.is_correct === true,
+  ).length;
+  const accuracy =
+    totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
+  const points = correctAnswers * 10; // 10 points per correct answer
+
+  // Update user points in rankings
+  try {
+    await updateUserPoints(points, accuracy);
+    console.log(
+      `✅ Points updated: +${points} points, ${accuracy.toFixed(1)}% accuracy`,
+    );
+  } catch (err) {
+    console.warn("Could not update points:", err);
+  }
 
   try {
     const { data: quizRow } = await supabase

@@ -10,6 +10,7 @@ import {
   showQuizList,
   setupQuizEventListeners,
 } from "./quiz-ui.js";
+import { initRankings } from "./rankings.js";
 
 /*
   Sjekker om brukeren er innlogget og har bekreftet e-post.
@@ -27,6 +28,31 @@ async function checkAuth() {
 }
 
 /*
+  Setter opp visningskontroller (kort/liste)
+*/
+function setupViewToggle() {
+  const viewCardsBtn = document.getElementById("view-cards");
+  const viewListBtn = document.getElementById("view-list");
+  const quizList = document.getElementById("quiz-list");
+
+  if (!viewCardsBtn || !viewListBtn || !quizList) return;
+
+  viewCardsBtn.addEventListener("click", () => {
+    quizList.classList.remove("list-view");
+    viewCardsBtn.classList.add("active");
+    viewListBtn.classList.remove("active");
+    showQuizList(); // Reload to show card view
+  });
+
+  viewListBtn.addEventListener("click", () => {
+    quizList.classList.add("list-view");
+    viewListBtn.classList.add("active");
+    viewCardsBtn.classList.remove("active");
+    showQuizList(); // Reload to show list view
+  });
+}
+
+/*
   Starter quiz-siden.
   Sørger for at brukeren er autentisert før
   navigasjon, hendelser og quizliste lastes inn.
@@ -38,6 +64,8 @@ async function initQuizPage() {
   await ensureAuthOnLoad();
   updateQuizNav();
   setupQuizEventListeners();
+  setupViewToggle();
+  initRankings();
   showQuizList();
 }
 

@@ -3,7 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Quiz</title>
+    <meta
+      name="description"
+      content="Lag og ta quiz på nett. En moderne plattform for å teste kunnskap og lære nye ting."
+    />
+    <meta name="theme-color" content="#2563eb" />
+    <title>QuizHub – Lag og ta quiz</title>
 
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
@@ -20,7 +25,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-md bg-white border-bottom">
       <div class="container">
-        <a class="navbar-brand" href="#" id="nav-home">Oscar Kvalø Johansen</a>
+        <a class="navbar-brand" href="#" id="nav-home">QuizHub</a>
         <button
           class="navbar-toggler"
           type="button"
@@ -30,9 +35,12 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          <div class="navbar-nav ms-auto">
-            <a class="nav-link" href="#" id="nav-quizzes">Quiz</a>
-            <a class="nav-link d-none" href="#" id="nav-admin">Admin</a>
+          <div class="navbar-nav me-auto">
+            <a class="nav-link" href="#" id="nav-quizzes">📚 Quiz</a>
+            <a class="nav-link" href="#" id="nav-rankings">🏆 Rangeringer</a>
+            <a class="nav-link d-none" href="#" id="nav-admin">⚙️ Admin</a>
+          </div>
+          <div class="navbar-nav">
             <div class="nav-item dropdown">
               <a
                 class="nav-link dropdown-toggle"
@@ -57,25 +65,64 @@
     <main class="container my-4">
       <!-- Quiz List -->
       <section id="quiz-list-area" class="d-none">
-        <div class="row mb-4">
+        <!-- Search and Filters Bar -->
+        <div
+          class="card card-elev mb-4"
+          style="
+            background: linear-gradient(
+              135deg,
+              rgba(255, 214, 2, 0.1),
+              rgba(255, 140, 0, 0.1)
+            );
+          "
+        >
+          <div class="card-body py-3">
+            <div class="row align-items-center">
+              <div class="col-md-5 mb-3 mb-md-0">
+                <input
+                  type="search"
+                  class="form-control"
+                  placeholder="🔍 Søk etter quiz..."
+                  style="border-radius: 2rem; padding: 0.75rem 1.25rem"
+                />
+              </div>
+              <div class="col-md-7">
+                <div class="d-flex flex-wrap gap-2 justify-content-md-end">
+                  <button
+                    class="btn btn-sm btn-outline-primary active"
+                    id="filter-newest"
+                  >
+                    🆕 Nyeste
+                  </button>
+                  <button
+                    class="btn btn-sm btn-outline-primary"
+                    id="filter-top"
+                  >
+                    🏆 Topp
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center">
           <div class="col-md-6">
-            <h2 class="h4 fw-semibold">Quiz</h2>
+            <h2 class="h4 fw-semibold mb-0">🎮 Quiz Bibliotek</h2>
+            <p class="text-muted small mb-0" style="font-weight: 600">
+              Velg et quiz eller lag ditt eget!
+            </p>
           </div>
           <div class="col-md-6 text-end">
-            <div class="btn-group" role="group" aria-label="Quiz filters">
+            <div class="btn-group" role="group">
               <button
-                type="button"
-                id="filter-newest"
-                class="btn btn-outline-primary btn-sm active"
+                class="btn btn-sm btn-outline-secondary active"
+                id="view-cards"
               >
-                Nyeste
+                🎴 Kort
               </button>
-              <button
-                type="button"
-                id="filter-top"
-                class="btn btn-outline-primary btn-sm"
-              >
-                Topp
+              <button class="btn btn-sm btn-outline-secondary" id="view-list">
+                📋 Liste
               </button>
             </div>
           </div>
@@ -101,16 +148,243 @@
         </div>
       </section>
 
-      <!-- Quiz Creation Form -->
-      <section id="quiz-create-area" class="d-none">
-        <div class="mb-3">
-          <button id="back-to-quizzes-btn" class="btn btn-secondary">
-            Tilbake
+      <!-- Rankings Section -->
+      <section id="rankings-area" class="d-none">
+        <div class="mb-4">
+          <button id="back-from-rankings-btn" class="btn btn-secondary">
+            ⬅️ Tilbake
           </button>
         </div>
+
+        <div
+          class="card card-elev mb-4"
+          style="
+            background: linear-gradient(
+              135deg,
+              var(--kahoot-orange),
+              var(--kahoot-yellow)
+            );
+            color: white;
+            border: none;
+          "
+        >
+          <div class="card-body text-center py-4">
+            <h1 class="display-5 fw-bold mb-2">🏆 RANGERINGER 🏆</h1>
+            <p class="mb-0" style="font-weight: 800; font-size: 1.125rem">
+              Se hvem som er best!
+            </p>
+          </div>
+        </div>
+
         <div class="card card-elev">
           <div class="card-body">
-            <h2 class="h4 fw-semibold mb-3">Opprett ny quiz</h2>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h2 class="h4 fw-semibold mb-0">📊 Topp Spillere</h2>
+              <div class="btn-group">
+                <button class="btn btn-sm btn-outline-primary active">
+                  📅 Alle Tider
+                </button>
+                <button class="btn btn-sm btn-outline-primary">
+                  📆 Denne Måneden
+                </button>
+                <button class="btn btn-sm btn-outline-primary">
+                  📌 Denne Uken
+                </button>
+              </div>
+            </div>
+
+            <div id="rankings-loading" class="text-center py-5">
+              <div
+                class="spinner-border"
+                style="color: var(--kahoot-purple)"
+                role="status"
+              >
+                <span class="visually-hidden">Laster...</span>
+              </div>
+              <p class="mt-3 fw-bold">Laster rangeringer...</p>
+            </div>
+
+            <div id="rankings-list" class="d-none">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th style="width: 80px">#</th>
+                      <th>👤 Spiller</th>
+                      <th class="text-end">⭐ Poeng</th>
+                      <th class="text-end">🎮 Quiz Spilt</th>
+                      <th class="text-end">🎯 Nøyaktighet</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rankings-tbody">
+                    <!-- Rankings will be loaded here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="rankings-error" class="d-none text-center py-5">
+              <div style="font-size: 3rem">😞</div>
+              <p class="fw-bold mt-3">Kunne ikke laste rangeringer</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quiz Creation Form -->
+      <section id="quiz-create-area" class="d-none">
+        <div class="mb-3 d-flex justify-content-between align-items-center">
+          <div>
+            <button id="back-to-quizzes-btn" class="btn btn-secondary">
+              ⬅️ Tilbake
+            </button>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary">💾 Lagre Kladd</button>
+            <button class="btn btn-outline-secondary">
+              👁️ Forhåndsvisning
+            </button>
+            <button class="btn btn-outline-secondary">📤 Importer</button>
+          </div>
+        </div>
+
+        <!-- Progress Steps -->
+        <div
+          class="card card-elev mb-4"
+          style="
+            background: linear-gradient(
+              135deg,
+              var(--kahoot-purple),
+              var(--kahoot-blue)
+            );
+            color: white;
+            border: none;
+          "
+        >
+          <div class="card-body py-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="text-center flex-fill">
+                <div
+                  style="
+                    width: 40px;
+                    height: 40px;
+                    background: white;
+                    color: var(--kahoot-purple);
+                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 900;
+                    font-size: 1.2rem;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                  "
+                >
+                  1
+                </div>
+                <div class="small mt-2" style="font-weight: 800">📝 Info</div>
+              </div>
+              <div
+                style="
+                  height: 3px;
+                  background: rgba(255, 255, 255, 0.3);
+                  flex: 1;
+                  margin: 0 0.5rem;
+                "
+              ></div>
+              <div class="text-center flex-fill">
+                <div
+                  style="
+                    width: 40px;
+                    height: 40px;
+                    background: rgba(255, 255, 255, 0.3);
+                    color: white;
+                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 900;
+                    font-size: 1.2rem;
+                  "
+                >
+                  2
+                </div>
+                <div class="small mt-2" style="font-weight: 800">
+                  ❓ Spørsmål
+                </div>
+              </div>
+              <div
+                style="
+                  height: 3px;
+                  background: rgba(255, 255, 255, 0.3);
+                  flex: 1;
+                  margin: 0 0.5rem;
+                "
+              ></div>
+              <div class="text-center flex-fill">
+                <div
+                  style="
+                    width: 40px;
+                    height: 40px;
+                    background: rgba(255, 255, 255, 0.3);
+                    color: white;
+                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 900;
+                    font-size: 1.2rem;
+                  "
+                >
+                  3
+                </div>
+                <div class="small mt-2" style="font-weight: 800">
+                  ⚙️ Innstillinger
+                </div>
+              </div>
+              <div
+                style="
+                  height: 3px;
+                  background: rgba(255, 255, 255, 0.3);
+                  flex: 1;
+                  margin: 0 0.5rem;
+                "
+              ></div>
+              <div class="text-center flex-fill">
+                <div
+                  style="
+                    width: 40px;
+                    height: 40px;
+                    background: rgba(255, 255, 255, 0.3);
+                    color: white;
+                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 900;
+                    font-size: 1.2rem;
+                  "
+                >
+                  4
+                </div>
+                <div class="small mt-2" style="font-weight: 800">
+                  🚀 Publiser
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-elev">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="h4 fw-semibold mb-0">✨ Opprett ny quiz</h2>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary">🎨 Mal</button>
+                <button class="btn btn-sm btn-outline-secondary">
+                  🤖 AI Hjelp
+                </button>
+              </div>
+            </div>
             <form id="quiz-create-form" novalidate>
               <div class="mb-3">
                 <label for="quiz-title" class="form-label">Tittel</label>

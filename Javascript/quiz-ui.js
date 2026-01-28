@@ -64,6 +64,62 @@ export function updateQuizNav() {
 export async function showQuizList() {
   toggleAreas(["app-area", "quiz-list-area"]);
   await loadQuizzes(currentCategory);
+  setupQuizSearch();
+}
+
+// Store all quizzes globally for search filtering
+let allQuizzes = [];
+
+function setupQuizSearch() {
+  const searchInput = document.querySelector(
+    'input[placeholder="🔍 Søk etter quiz..."]',
+  );
+  if (!searchInput) return;
+
+  searchInput.addEventListener("input", (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    filterQuizzes(query);
+  });
+}
+
+function filterQuizzes(searchQuery) {
+  const quizList = document.getElementById("quiz-list");
+  if (!quizList) return;
+
+  // Get all quiz cards
+  const allCards = quizList.querySelectorAll(".card-click");
+
+  allCards.forEach((card) => {
+    const title =
+      card
+        .querySelector(".card-title, .quiz-list-title")
+        ?.textContent.toLowerCase() || "";
+    const description =
+      card
+        .querySelector(".card-text, .quiz-list-description")
+        ?.textContent.toLowerCase() || "";
+
+    const matches =
+      title.includes(searchQuery) || description.includes(searchQuery);
+    card.parentElement.style.display = matches ? "" : "none";
+  });
+
+  // Show "no results" message if no cards match
+  const visibleCards = Array.from(allCards).some(
+    (card) => card.parentElement.style.display !== "none",
+  );
+  if (!visibleCards && searchQuery.length > 0) {
+    const existingMessage = quizList.querySelector(".no-search-results");
+    if (!existingMessage) {
+      const noResultsDiv = document.createElement("div");
+      noResultsDiv.className = "col-12 no-search-results";
+      noResultsDiv.innerHTML = `<p class="text-muted">Ingen quiz funnet for "${searchQuery}"</p>`;
+      quizList.appendChild(noResultsDiv);
+    }
+  } else {
+    const noResultsDiv = quizList.querySelector(".no-search-results");
+    if (noResultsDiv) noResultsDiv.remove();
+  }
 }
 
 async function loadQuizzes(category = "newest") {
@@ -83,39 +139,64 @@ async function loadQuizzes(category = "newest") {
       '<p class="text-muted">Ingen quiz tilgjengelig ennå.</p>';
     quizList.appendChild(noQuizzesDiv);
   } else {
+    const isListView = quizList.classList.contains("list-view");
+
     quizzes.forEach((q) => {
       const col = document.createElement("div");
-      col.className = "col-md-6 col-lg-4";
-      col.innerHTML = `
-        <div class="card card-elev card-click h-100" data-quiz-id="${
-          q.id
-        }" style="height: 200px; cursor: pointer; position: relative; overflow: hidden;">
-          ${
-            q.thumbnail_url
-              ? `
-            <img src="${escapeHtml(q.thumbnail_url)}&w=400&h=225&fit=crop" 
-                 alt="${escapeHtml(q.title)}" 
-                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" />
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4);"></div>
-          `
-              : ""
-          }
-          <div class="card-body" style="${q.thumbnail_url ? "position: relative; z-index: 1; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.5);" : ""}">
-            <h5 class="card-title">${escapeHtml(q.title)}</h5>
-            <p class="card-text ${q.thumbnail_url ? "text-white-50" : "text-muted"} small">${escapeHtml(
-              q.description || "",
-            )}</p>
-            <small class="${q.thumbnail_url ? "text-white-50" : "text-muted"} d-block">Opprettet: ${new Date(
-              q.created_at,
-            ).toLocaleDateString("no-NO")}</small>
+      col.className = isListView ? "col-12" : "col-md-6 col-lg-4";
+
+      if (isListView) {
+        // List view layout
+        col.innerHTML = `
+          <div class="card card-elev card-click" data-quiz-id="${q.id}" style="cursor: pointer;">
+            <div class="card-body quiz-list-item-content">
+              <div class="quiz-list-info">
+                <div class="quiz-list-title">${escapeHtml(q.title)}</div>
+                <div class="quiz-list-description">${escapeHtml(q.description || "Ingen beskrivelse")}</div>
+                <div class="quiz-list-meta">
+                  <span>📅 ${new Date(q.created_at).toLocaleDateString("no-NO")}</span>
+                  <span>📝 ${typeof q.answers_count === "number" ? q.answers_count : 0} svar</span>
+                </div>
+              </div>
+              <div class="quiz-list-actions">
+                <button class="btn btn-primary">🎮 Spill Quiz</button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        // Card view layout (original)
+        col.innerHTML = `
+          <div class="card card-elev card-click h-100" data-quiz-id="${
+            q.id
+          }" style="height: 200px; cursor: pointer; position: relative; overflow: hidden;">
             ${
-              typeof q.answers_count === "number"
-                ? `<small class="${q.thumbnail_url ? "text-white-50" : "text-muted"}">Svar: ${q.answers_count}</small>`
+              q.thumbnail_url
+                ? `
+              <img src="${escapeHtml(q.thumbnail_url)}&w=400&h=225&fit=crop" 
+                   alt="${escapeHtml(q.title)}" 
+                   style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" />
+              <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4);"></div>
+            `
                 : ""
             }
+            <div class="card-body" style="${q.thumbnail_url ? "position: relative; z-index: 1; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.5);" : ""}">
+              <h5 class="card-title">${escapeHtml(q.title)}</h5>
+              <p class="card-text ${q.thumbnail_url ? "text-white-50" : "text-muted"} small">${escapeHtml(
+                q.description || "",
+              )}</p>
+              <small class="${q.thumbnail_url ? "text-white-50" : "text-muted"} d-block">Opprettet: ${new Date(
+                q.created_at,
+              ).toLocaleDateString("no-NO")}</small>
+              ${
+                typeof q.answers_count === "number"
+                  ? `<small class="${q.thumbnail_url ? "text-white-50" : "text-muted"}">Svar: ${q.answers_count}</small>`
+                  : ""
+              }
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      }
       quizList.appendChild(col);
     });
   }
@@ -743,8 +824,9 @@ async function loadQuizForTaking(quizId, needsName = false) {
                 <input class="form-check-input quiz-answer-radio" type="radio" 
                   name="question_${q.id}" 
                   id="choice_${choice.id}" 
-                  value="${escapeHtml(choice.choice_text)}" 
+                  value="${choice.id}" 
                   data-option-number="${index + 1}"
+                  data-choice-id="${choice.id}"
                   data-choice-text="${escapeHtml(choice.choice_text)}"
                   data-question-id="${q.id}"
                   data-is-correct="${choice.is_correct || false}" />
@@ -1247,11 +1329,12 @@ export function setupQuizEventListeners() {
         .querySelectorAll(".quiz-answer-radio:checked")
         .forEach((radio) => {
           const qid = radio.dataset.questionId;
-          const choiceText = radio.value; // Now contains the choice text
+          const choiceId = radio.value; // Now contains the choice ID
+          const choiceText = radio.dataset.choiceText;
           const optionNumber = radio.dataset.optionNumber;
           const isCorrect = radio.dataset.isCorrect === "true";
-          // Store the choice text (or "Option 2" format for clarity)
-          answers[qid] = `Option ${optionNumber}: ${choiceText}`;
+          // Store the choice ID (database uses ID for validation)
+          answers[qid] = choiceId;
           answerDetails[qid] = {
             type: "multiple_choice",
             choiceText,
