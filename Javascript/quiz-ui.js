@@ -1,5 +1,9 @@
 import { supabase } from "./auth.js";
-import { getCurrentUser, getCurrentRole } from "./state.js";
+import {
+  getCurrentUser,
+  getCurrentRole,
+  getCurrentDisplayName,
+} from "./state.js";
 import {
   fetchQuizzesByCategory,
   fetchQuizWithQuestions,
@@ -41,13 +45,16 @@ function toggleAreas(showIds = []) {
 export function updateQuizNav() {
   const currentUser = getCurrentUser();
   const currentRole = getCurrentRole();
+  const currentDisplayName = getCurrentDisplayName();
   const navUserBadge = document.getElementById("nav-user-badge");
   const createQuizBtn = document.getElementById("create-quiz-btn");
   const createQuizCard = document.getElementById("create-quiz-card");
   const navAdminLink = document.getElementById("nav-admin");
   const logoutNavBtn = document.getElementById("logout-nav-btn");
 
-  if (navUserBadge) navUserBadge.textContent = currentUser?.email || "Gjest";
+  if (navUserBadge)
+    navUserBadge.textContent =
+      currentDisplayName || currentUser?.email || "Gjest";
   logoutNavBtn?.classList.toggle("d-none", !currentUser);
 
   if (currentRole === "admin") {

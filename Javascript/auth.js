@@ -1,4 +1,9 @@
-import { setCurrentUser, setCurrentRole, getCurrentUser } from "./state.js";
+import {
+  setCurrentUser,
+  setCurrentRole,
+  setCurrentDisplayName,
+  getCurrentUser,
+} from "./state.js";
 
 export const SUPABASE_URL = "https://aiseafkfjhixolxezjjq.supabase.co";
 export const SUPABASE_ANON_KEY =
@@ -53,7 +58,7 @@ export async function ensureAuthOnLoad() {
 }
 
 /*
-  Henter brukerrollen fra profiles-tabellen i databasen.
+  Henter brukerrollen og display_name fra profiles-tabellen i databasen.
   Hvis profilen ikke finnes, opprettes den automatisk
   med standardrollen "user".
 */
@@ -63,7 +68,7 @@ export async function loadProfileRole() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, display_name")
     .eq("id", currentUser.id)
     .single();
 
@@ -85,10 +90,12 @@ export async function loadProfileRole() {
     }
 
     setCurrentRole("user");
+    setCurrentDisplayName(null);
     return;
   }
 
   setCurrentRole(data?.role || "user");
+  setCurrentDisplayName(data?.display_name || null);
 }
 
 /*

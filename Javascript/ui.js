@@ -1,8 +1,12 @@
-import { getCurrentUser, getCurrentRole } from "./state.js";
+import {
+  getCurrentUser,
+  getCurrentRole,
+  getCurrentDisplayName,
+} from "./state.js";
 
 /*
   Oppdaterer merkene (badges) øverst på siden.
-  Viser e-post og rolle hvis brukeren er innlogget,
+  Viser display_name og rolle hvis brukeren er innlogget,
   eller "Gjest" hvis ingen er logget inn.
 */
 function updateBadges() {
@@ -10,13 +14,14 @@ function updateBadges() {
   const roleBadge = document.getElementById("role-badge");
   const currentUser = getCurrentUser();
   const currentRole = getCurrentRole();
+  const currentDisplayName = getCurrentDisplayName();
 
   if (!userBadge || !roleBadge) return;
 
   if (currentUser?.email) {
     const isAdmin = currentRole === "admin";
 
-    userBadge.textContent = currentUser.email;
+    userBadge.textContent = currentDisplayName || currentUser.email;
     userBadge.className = "badge rounded-pill text-bg-secondary";
 
     roleBadge.textContent = isAdmin ? "Admin" : "Bruker";
