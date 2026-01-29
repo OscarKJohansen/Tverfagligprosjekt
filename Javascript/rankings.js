@@ -2,7 +2,15 @@ import { supabase } from "./auth.js";
 import { getCurrentUser } from "./state.js";
 
 /**
- * Load and display user rankings from Supabase
+ * Viser rangeringseksjonen og skjuler andre seksjoner
+ */
+export function showRankingsPage() {
+  // Denne funksjonen brukes av quiz-ui.js toggleAreas
+  // Rangeringseksjonen vises når "rankings-area" er i AREAS-listen
+}
+
+/**
+ * Laster og viser brukerrangeringer fra Supabase
  */
 export async function loadRankings() {
   const loadingEl = document.getElementById("rankings-loading");
@@ -12,13 +20,13 @@ export async function loadRankings() {
 
   if (!loadingEl || !listEl || !errorEl || !tbodyEl) return;
 
-  // Show loading
+  // Vis laster-indikator
   loadingEl.classList.remove("d-none");
   listEl.classList.add("d-none");
   errorEl.classList.add("d-none");
 
   try {
-    // Fetch rankings from user_points table, ordered by points descending
+    // Hent rangeringer fra user_points-tabellen, sortert etter poeng (synkende)
     const { data, error } = await supabase
       .from("user_points")
       .select("user_email, total_points, quizzes_played, accuracy")
@@ -27,11 +35,11 @@ export async function loadRankings() {
 
     if (error) throw error;
 
-    // Hide loading, show list
+    // Skjul lasting, vis listen
     loadingEl.classList.add("d-none");
     listEl.classList.remove("d-none");
 
-    // Clear existing rows
+    // Tøm eksisterende rader
     tbodyEl.innerHTML = "";
 
     if (!data || data.length === 0) {
@@ -46,13 +54,13 @@ export async function loadRankings() {
       return;
     }
 
-    // Populate table with rankings
+    // Fyll tabellen med rangeringer
     data.forEach((user, index) => {
       const rank = index + 1;
       let medal = "";
       let rankClass = "";
 
-      // Add medals for top 3
+      // Legg til medaljer for topp 3
       if (rank === 1) {
         medal = "🥇";
         rankClass = "rank-1";
@@ -72,7 +80,9 @@ export async function loadRankings() {
       row.innerHTML = `
         <td class="fw-bold" style="font-size: 1.25rem;">${medal} ${rank}</td>
         <td class="fw-semibold">${user.user_email}</td>
-        <td class="text-end fw-bold" style="color: var(--kahoot-orange); font-size: 1.125rem;">${user.total_points.toLocaleString()}</td>
+        <td class="text-end fw-bold" style="color: var(--kahoot-orange); font-size: 1.125rem;">
+          ${user.total_points.toLocaleString()}
+        </td>
         <td class="text-end">${user.quizzes_played || 0}</td>
         <td class="text-end">${accuracyFormatted}</td>
       `;
@@ -80,21 +90,21 @@ export async function loadRankings() {
       tbodyEl.appendChild(row);
     });
   } catch (error) {
-    console.error("Error loading rankings:", error);
+    console.error("Feil ved lasting av rangeringer:", error);
     loadingEl.classList.add("d-none");
     errorEl.classList.remove("d-none");
   }
 }
 
 /**
- * Update user points after completing a quiz
+ * Oppdaterer brukerpoeng etter fullført quiz
  */
 export async function updateUserPoints(points, accuracy) {
   const user = getCurrentUser();
   if (!user || !user.email) return;
 
   try {
-    // First, try to get existing record
+    // Forsøk først å hente eksisterende brukerdata
     const { data: existing, error: fetchError } = await supabase
       .from("user_points")
       .select("*")
@@ -102,13 +112,13 @@ export async function updateUserPoints(points, accuracy) {
       .single();
 
     if (fetchError && fetchError.code !== "PGRST116") {
-      // PGRST116 means no rows found, which is fine
-      console.error("Error fetching user points:", fetchError);
+      // PGRST116 betyr at ingen rader ble funnet, noe som er helt greit
+      console.error("Feil ved henting av brukerpoeng:", fetchError);
       return;
     }
 
     if (existing) {
-      // Update existing record
+      // Oppdater eksisterende rad
       const newTotalPoints = existing.total_points + points;
       const newQuizzesPlayed = existing.quizzes_played + 1;
       const newAccuracy =
@@ -126,10 +136,10 @@ export async function updateUserPoints(points, accuracy) {
         .eq("user_email", user.email);
 
       if (updateError) {
-        console.error("Error updating user points:", updateError);
+        console.error("Feil ved oppdatering av brukerpoeng:", updateError);
       }
     } else {
-      // Insert new record
+      // Sett inn ny rad for brukeren
       const { error: insertError } = await supabase.from("user_points").insert({
         user_email: user.email,
         total_points: points,
@@ -138,16 +148,16 @@ export async function updateUserPoints(points, accuracy) {
       });
 
       if (insertError) {
-        console.error("Error inserting user points:", insertError);
+        console.error("Feil ved innsetting av brukerpoeng:", insertError);
       }
     }
   } catch (error) {
-    console.error("Error updating user points:", error);
+    console.error("Feil ved oppdatering av brukerpoeng:", error);
   }
 }
 
 /**
- * Initialize rankings section
+ * Initialiserer rangeringseksjonen
  */
 export function initRankings() {
   const rankingsNav = document.getElementById("nav-rankings");
@@ -156,34 +166,30 @@ export function initRankings() {
   if (rankingsNav) {
     rankingsNav.addEventListener("click", (e) => {
       e.preventDefault();
-      showRankingsSection();
-      loadRankings();
+      showRankings();
     });
   }
 
   if (backBtn) {
     backBtn.addEventListener("click", () => {
-      hideRankingsSection();
+      hideRankings();
     });
   }
 }
 
-function showRankingsSection() {
-  const rankingsArea = document.getElementById("rankings-area");
-  const quizListArea = document.getElementById("quiz-list-area");
-  const quizCreateArea = document.getElementById("quiz-create-area");
-  const authArea = document.getElementById("auth-area");
-
-  if (rankingsArea) rankingsArea.classList.remove("d-none");
-  if (quizListArea) quizListArea.classList.add("d-none");
-  if (quizCreateArea) quizCreateArea.classList.add("d-none");
-  if (authArea) authArea.classList.add("d-none");
+// Viser rangeringer ved å laste data og oppdatere UI
+function showRankings() {
+  // Importerer dynamisk for å unngå sirkulær import
+  import("./quiz-ui.js").then(({ toggleAreas }) => {
+    toggleAreas(["rankings-area"]);
+    loadRankings();
+  });
 }
 
-function hideRankingsSection() {
-  const rankingsArea = document.getElementById("rankings-area");
-  const quizListArea = document.getElementById("quiz-list-area");
-
-  if (rankingsArea) rankingsArea.classList.add("d-none");
-  if (quizListArea) quizListArea.classList.remove("d-none");
+// Skjuler rangeringer og viser quiz-listen igjen
+function hideRankings() {
+  // Importerer dynamisk for å unngå sirkulær import
+  import("./quiz-ui.js").then(({ toggleAreas }) => {
+    toggleAreas(["app-area", "quiz-list-area"]);
+  });
 }

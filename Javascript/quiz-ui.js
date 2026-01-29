@@ -21,7 +21,7 @@ import {
 
 let currentQuizId = null;
 let currentQuizParticipantName = null;
-let currentMovieRatingData = null; // Store current movie rating for editing
+let currentMovieRatingData = null; // Lagrer nåværende filmrating for redigering
 
 const AREAS = [
   "app-area",
@@ -30,16 +30,19 @@ const AREAS = [
   "quiz-take-area",
   "admin-results-area",
   "results-area",
+  "rankings-area",
 ];
 
-let currentCategory = "newest"; // default category
+let currentCategory = "newest"; // standard kategori
 
-function toggleAreas(showIds = []) {
+export function toggleAreas(showIds = []) {
   AREAS.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.toggle("d-none", !showIds.includes(id));
   });
+  // Scroll til toppen når du bytter seksjoner
+  window.scrollTo(0, 0);
 }
 
 export function updateQuizNav() {
@@ -74,7 +77,7 @@ export async function showQuizList() {
   setupQuizSearch();
 }
 
-// Store all quizzes globally for search filtering
+// Lagrer alle quizer globalt for søkfiltrering
 let allQuizzes = [];
 
 function setupQuizSearch() {
@@ -93,7 +96,7 @@ function filterQuizzes(searchQuery) {
   const quizList = document.getElementById("quiz-list");
   if (!quizList) return;
 
-  // Get all quiz cards
+  // Hent alle quiz-kort
   const allCards = quizList.querySelectorAll(".card-click");
 
   allCards.forEach((card) => {
@@ -111,7 +114,7 @@ function filterQuizzes(searchQuery) {
     card.parentElement.style.display = matches ? "" : "none";
   });
 
-  // Show "no results" message if no cards match
+  // Vis "ingen resultater"-melding hvis ingen kort samsvarer
   const visibleCards = Array.from(allCards).some(
     (card) => card.parentElement.style.display !== "none",
   );
@@ -133,7 +136,7 @@ async function loadQuizzes(category = "newest") {
   const quizList = document.getElementById("quiz-list");
   if (!quizList) return;
 
-  // Remove old quiz cards but keep the create-quiz-card
+  // Fjern gamle quiz-kort men behold create-quiz-card
   const oldCards = quizList.querySelectorAll(".card-click");
   oldCards.forEach((card) => card.parentElement.remove());
 
@@ -153,7 +156,7 @@ async function loadQuizzes(category = "newest") {
       col.className = isListView ? "col-12" : "col-md-6 col-lg-4";
 
       if (isListView) {
-        // List view layout
+        // Listevisning-oppsett
         col.innerHTML = `
           <div class="card card-elev card-click" data-quiz-id="${q.id}" style="cursor: pointer;">
             <div class="card-body quiz-list-item-content">
@@ -172,7 +175,7 @@ async function loadQuizzes(category = "newest") {
           </div>
         `;
       } else {
-        // Card view layout (original)
+        // Kortvisning-oppsett (original)
         col.innerHTML = `
           <div class="card card-elev card-click h-100" data-quiz-id="${
             q.id
@@ -222,7 +225,7 @@ export function showQuizCreate() {
 function initQuestionFields() {
   const container = document.getElementById("questions-container");
   if (!container) return;
-  // Don't add a default question - let users click "Legg til spørsmål" to add their first one
+  // Ikke legg til et standardspørsmål - la brukere klikke "Legg til spørsmål" for å legge til sitt første
 }
 
 function addQuestionField() {
@@ -283,7 +286,7 @@ function addQuestionField() {
     <button type="button" class="btn btn-sm btn-outline-danger remove-question-btn mt-2">Fjern spørsmål</button>
   `;
 
-  // Toggle visibility based on question type
+  // Veksle synlighet basert på spørsmålstype
   const typeSelect = div.querySelector(".question-type-select");
   const choicesContainer = div.querySelector(".choices-container");
   const textAnswerContainer = div.querySelector(".text-answer-container");
@@ -302,10 +305,10 @@ function addQuestionField() {
   };
 
   typeSelect.addEventListener("change", toggleQuestionType);
-  // Initialize visibility on load
+  // Initialisér synlighet ved lasting
   toggleQuestionType();
 
-  // Add choice button
+  // Legg til valg-knapp
   div.querySelector(".add-choice-btn").addEventListener("click", () => {
     addChoiceField(div);
   });
@@ -315,7 +318,7 @@ function addQuestionField() {
     updateQuestionLabels();
   });
 
-  // Setup image search
+  // Sett opp bildesøk
   setupImageSearch(div);
 
   container.appendChild(div);
@@ -339,7 +342,7 @@ function addChoiceField(questionDiv) {
     <button type="button" class="btn btn-outline-danger remove-choice-btn">Fjern</button>
   `;
 
-  // Update radio name to be unique per question
+  // Oppdater radionavn for å være unikt per spørsmål
   const questionIndex = Array.from(
     document.querySelectorAll(".question-field"),
   ).indexOf(questionDiv);
@@ -355,7 +358,7 @@ function addChoiceField(questionDiv) {
 
   choicesList.appendChild(choiceDiv);
 
-  // Update all radio names in this question to match
+  // Oppdater alle radionavn i dette spørsmålet for å samsvare
   updateChoiceRadioNames(questionDiv);
 }
 
@@ -400,18 +403,18 @@ async function handleMovieRatingGeneration() {
     let questionData;
     if (questionType === "multiple_choice") {
       questionData = await generateMovieRatingMultipleChoice(movieTitle);
-      // Store for editing and show edit modal
+      // Lagre for redigering og vis redigeringsmodal
       currentMovieRatingData = questionData;
       showMovieRatingEditModal(questionData);
       statusEl.textContent = "";
     } else {
       questionData = await generateMovieRatingTextAnswer(movieTitle);
-      // For text answers, add directly without editing
+      // For tekstsvar, legg til direkte uten redigering
       addMovieRatingQuestionField(questionData);
       statusEl.textContent = "Spørsmål lagt til!";
       statusEl.className = "text-success small mb-2";
 
-      // Reset form and close modal
+      // Tilbakestill skjema og lukk modal
       setTimeout(() => {
         document.getElementById("movie-rating-form").reset();
         const modal = bootstrap.Modal.getInstance(
@@ -439,11 +442,11 @@ function showMovieRatingEditModal(questionData) {
 
   questionText.textContent = questionData.question;
 
-  // Find the correct answer index
+  // Finn indeksen for riktig svar
   const answers = questionData.answers.map((ans) => ans);
   const correctIndex = answers.indexOf(questionData.correctAnswer);
 
-  // Create editable fields
+  // Opprett redigerbare felt
   answersContainer.innerHTML = answers
     .map(
       (answer, index) => `
@@ -464,7 +467,7 @@ function showMovieRatingEditModal(questionData) {
     )
     .join("");
 
-  // Close the generation modal and open edit modal
+  // Lukk genereringsmodal og åpne redigeringsmodal
   const generationModal = bootstrap.Modal.getInstance(
     document.getElementById("movieRatingModal"),
   );
@@ -497,7 +500,7 @@ function handleMovieRatingConfirm() {
     return;
   }
 
-  // Update the question data with edited answers
+  // Oppdater spørsmålsdataene med redigerte svar
   const updatedQuestionData = {
     ...currentMovieRatingData,
     answers: updatedAnswers,
@@ -505,13 +508,13 @@ function handleMovieRatingConfirm() {
 
   addMovieRatingQuestionField(updatedQuestionData);
 
-  // Close edit modal
+  // Lukk redigeringsmodal
   const editModal = bootstrap.Modal.getInstance(
     document.getElementById("movieRatingEditModal"),
   );
   editModal?.hide();
 
-  // Reset and close generation modal
+  // Tilbakestill og lukk genereringsmodal
   setTimeout(() => {
     document.getElementById("movie-rating-form").reset();
     document.getElementById("movie-rating-status").textContent =
@@ -595,7 +598,7 @@ function setupImageSearch(questionDiv) {
   );
   const removeImageBtn = questionDiv.querySelector(".remove-image-btn");
 
-  // Store selected image data
+  // Lagre valgt bildedata
   let selectedImage = null;
 
   // Search button click handler
@@ -637,7 +640,7 @@ function setupImageSearch(questionDiv) {
     }
   });
 
-  // Remove image button
+  // Fjern bildeknapp
   removeImageBtn.addEventListener("click", () => {
     selectedImage = null;
     selectedImageDisplay.classList.add("d-none");
@@ -669,7 +672,7 @@ function renderImageGrid(container, images, onSelectCallback) {
 
   container.innerHTML = gridHtml;
 
-  // Add click handlers to image items
+  // Legg til klikkhåndtakere til bildeelementer
   container.querySelectorAll(".image-grid-item").forEach((item) => {
     item.addEventListener("click", () => {
       const index = parseInt(item.dataset.imageIndex);
@@ -706,7 +709,7 @@ function selectImage(image, questionDiv) {
 
   selectedImageDisplay.classList.remove("d-none");
 
-  // Store image data in the question div
+  // Lagre bildedata i spørsmål-diven
   questionDiv.dataset.selectedImageUrl = image.rawUrl;
   questionDiv.dataset.selectedImageAttribution = getAttributionHtml(image);
 }
@@ -780,7 +783,7 @@ async function showQuizTake(quizId) {
   await loadQuizForTaking(quizId, !currentQuizParticipantName);
 }
 
-// Store current quiz data for answer checking
+// Lagrer gjeldende quiz-data for svarsjekking
 let currentQuizData = null;
 
 async function loadQuizForTaking(quizId, needsName = false) {
@@ -1038,7 +1041,7 @@ function renderAnswers(containerId, answers, includeName = false) {
     })
     .join("");
 
-  // Add CSV download event listeners
+  // Legg til CSV-nedlastingshåndtakere
   if (includeName) {
     document.querySelectorAll(".download-quiz-csv-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1340,7 +1343,7 @@ export function setupQuizEventListeners() {
           const choiceText = radio.dataset.choiceText;
           const optionNumber = radio.dataset.optionNumber;
           const isCorrect = radio.dataset.isCorrect === "true";
-          // Store the choice ID (database uses ID for validation)
+          // Lagre valg-ID (databasen bruker ID for validering)
           answers[qid] = choiceId;
           answerDetails[qid] = {
             type: "multiple_choice",
@@ -1374,7 +1377,7 @@ export function setupQuizEventListeners() {
           .order("id", { ascending: false })
           .limit(questionIds.length);
 
-        // Create a map of latest answers by question_id
+        // Opprett et kart over nyeste svar etter question_id
         const answersByQuestion = {};
         (submittedAnswers || []).forEach((ans) => {
           if (!answersByQuestion[ans.question_id]) {
@@ -1382,7 +1385,7 @@ export function setupQuizEventListeners() {
           }
         });
 
-        // Show feedback for each answered question
+        // Vis tilbakemelding for hvert besvarte spørsmål
         Object.entries(answerDetails).forEach(([qid, detail]) => {
           const container = document.querySelector(
             `.question-container[data-question-id="${qid}"]`,
@@ -1419,13 +1422,13 @@ export function setupQuizEventListeners() {
           });
 
         statusEl && (statusEl.textContent = "Svar sendt!");
-        setTimeout(showQuizList, 2500); // Longer delay to see feedback
+        setTimeout(showQuizList, 2500); // Lengre forsinkelse for å se tilbakemelding
       } else {
         statusEl && (statusEl.textContent = "Feil ved sending av svar.");
       }
     });
 
-  // Setup thumbnail search
+  // Sett opp miniatyrbildesøk
   setupThumbnailSearch();
 }
 
@@ -1479,7 +1482,7 @@ function setupMovieSearch() {
 
         suggestionsDropdown.classList.remove("d-none");
 
-        // Add click handlers to suggestions
+        // Legg til klikkhåndtakere til forslagselementer
         suggestionsDropdown
           .querySelectorAll(".movie-suggestion")
           .forEach((item) => {
@@ -1500,7 +1503,7 @@ function setupMovieSearch() {
     }, 300);
   });
 
-  // Close dropdown when clicking outside
+  // Lukk rullegardin når du klikker utenfor
   document.addEventListener("click", (e) => {
     if (!e.target.closest("#movie-title-input")) {
       suggestionsDropdown.classList.add("d-none");
@@ -1514,7 +1517,7 @@ function answersToCSV(quizTitle, answers) {
   const headers = ["Navn", "Spørsmål", "Svar", "Sendt"];
   const csvRows = [headers.join(",")];
 
-  // Add each answer as a row
+  // Legg til hvert svar som en rad
   answers.forEach((ans) => {
     const row = [
       `"${(ans.participantName || "").replace(/"/g, '""')}"`,

@@ -2,7 +2,7 @@ import { supabase } from "./auth.js";
 import { getCurrentUser, getCurrentRole } from "./state.js";
 import { updateUserPoints } from "./rankings.js";
 
-let currentViewMode = "cards"; // 'cards' or 'list'
+let currentViewMode = "cards"; // 'cards' eller 'list'
 
 /*
   Henter alle quizer fra databasen.
@@ -22,7 +22,7 @@ export async function fetchQuizzesByCategory(category = "newest") {
   const { data, error } = await query;
 
   if (error) {
-    console.error("Error fetching quizzes:", error);
+    console.error("Feil ved henting av quizer:", error);
     return [];
   }
 
@@ -41,7 +41,7 @@ export async function fetchQuizWithQuestions(quizId) {
     .single();
 
   if (quizError) {
-    console.error("Error fetching quiz:", quizError);
+    console.error("Feil ved henting av quiz:", quizError);
     return null;
   }
 
@@ -52,7 +52,7 @@ export async function fetchQuizWithQuestions(quizId) {
     .order("created_at", { ascending: true });
 
   if (questionsError) {
-    console.error("Error fetching questions:", questionsError);
+    console.error("Feil ved henting av spørsmål:", questionsError);
     return quiz;
   }
 
@@ -111,7 +111,7 @@ export async function createQuiz(
     created_at: new Date().toISOString(),
   };
 
-  // Only add thumbnail_url if provided (in case the column doesn't exist yet)
+  // Legg til thumbnail_url kun hvis den er gitt (for hvis kolonnen ikke finnes ennå)
   if (thumbnailUrl) {
     quizInsertData.thumbnail_url = thumbnailUrl;
   }
@@ -123,7 +123,7 @@ export async function createQuiz(
     .single();
 
   if (quizError) {
-    console.error("Error creating quiz:", quizError);
+    console.error("Feil ved oppretting av quiz:", quizError);
     return null;
   }
 
@@ -136,7 +136,7 @@ export async function createQuiz(
         created_at: new Date().toISOString(),
       };
 
-      // Only add image fields if they exist (in case the columns don't exist yet)
+      // Legg til bildefefelter kun hvis de finnes (for hvis kolonnene ikke finnes ennå)
       if (q.imageUrl) {
         questionData.image_url = q.imageUrl;
       }
@@ -195,12 +195,12 @@ export async function submitAnswers(quizId, answers, participantName = null) {
   const questionMap = {};
   questions.forEach((q) => (questionMap[q.id] = q.question_type));
 
-  // Get text question IDs
+  // hent tekstspørsmål IDs
   const textQuestionIds = Object.keys(questionMap)
     .filter((id) => questionMap[id] === "text")
     .map(Number);
 
-  // Get multiple choice question IDs
+  // hent riktige svar for flervalgsspørsmål
   const multipleChoiceIds = Object.keys(questionMap)
     .filter((id) => questionMap[id] === "multiple_choice")
     .map(Number);
@@ -209,7 +209,7 @@ export async function submitAnswers(quizId, answers, participantName = null) {
   let correctChoicesMap = {}; // For multiple choice questions
   let movieRatingQuestions = new Set();
 
-  // Fetch correct answers for text questions
+  // Hent riktige svar for tekstspørsmål
   if (textQuestionIds.length > 0) {
     const { data: textAnswers } = await supabase
       .from("text_answers")
@@ -225,7 +225,7 @@ export async function submitAnswers(quizId, answers, participantName = null) {
     });
   }
 
-  // Fetch correct answers for multiple choice questions
+  // Hent riktige svar for flervalgsspørsmål
   if (multipleChoiceIds.length > 0) {
     const { data: choices } = await supabase
       .from("question_choices")
@@ -243,18 +243,18 @@ export async function submitAnswers(quizId, answers, participantName = null) {
       const qId = Number(questionId);
       let isCorrect = null;
 
-      // Handle multiple choice questions
+      // Håndter multiple choice spørsmål
       if (questionMap[qId] === "multiple_choice") {
-        // answerText should be the choice ID for multiple choice
-        // Compare with the correct choice ID
+        // answerText skal være valg-ID for multiple choice
+        // Sammenlign med riktig valg-ID
         isCorrect = correctChoicesMap[qId] === Number(answerText);
       }
-      // Handle text questions
+      // Håndter tekstspørsmål
       else if (questionMap[qId] === "text" && correctAnswersMap[qId]) {
         const correctAnswer = correctAnswersMap[qId];
 
         if (movieRatingQuestions.has(qId)) {
-          // Movie rating: check with ±0.2 tolerance
+          // Filmbedømmelse: sjekk med ±0,2 toleranse
           const userRating = parseFloat(answerText);
           const correctRating = parseFloat(correctAnswer);
 
@@ -263,7 +263,7 @@ export async function submitAnswers(quizId, answers, participantName = null) {
             isCorrect = difference <= 0.2;
           }
         } else {
-          // Regular text answer: exact match (case-insensitive)
+          // Vanlig tekstsvar: eksakt samsvar (uavhengig av små/store bokstaver)
           isCorrect =
             answerText.trim().toLowerCase() === correctAnswer.toLowerCase();
         }
@@ -283,23 +283,23 @@ export async function submitAnswers(quizId, answers, participantName = null) {
   const { error } = await supabase.from("answers").insert(answersToInsert);
   if (error) return false;
 
-  // Calculate score and accuracy
+  // Beregn poengsum og nøyaktighet
   const totalQuestions = answersToInsert.length;
   const correctAnswers = answersToInsert.filter(
     (a) => a.is_correct === true,
   ).length;
   const accuracy =
     totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
-  const points = correctAnswers * 10; // 10 points per correct answer
+  const points = correctAnswers * 10; // 10 poeng per riktig svar
 
-  // Update user points in rankings
+  // Oppdater brukerpoeng i rangeringer
   try {
     await updateUserPoints(points, accuracy);
     console.log(
-      `✅ Points updated: +${points} points, ${accuracy.toFixed(1)}% accuracy`,
+      `✅ Poeng oppdatert: +${points} poeng, ${accuracy.toFixed(1)}% nøyaktighet`,
     );
   } catch (err) {
-    console.warn("Could not update points:", err);
+    console.warn("Kunne ikke oppdatere poeng:", err);
   }
 
   try {

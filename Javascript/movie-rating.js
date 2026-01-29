@@ -1,15 +1,15 @@
 /**
- * Movie Rating Question Generator
- * Fetches movie data from OMDb API and generates quiz questions
+ * Filmvurderingsspørsmål-generator
+ * Henter filmdata fra OMDb API og genererer quizspørsmål
  */
 
 const OMDB_API_KEY = "7a8dd0da";
 const OMDB_BASE_URL = "http://www.omdbapi.com/";
 
 /**
- * Search for movies by title (returns multiple results)
- * @param {string} searchQuery - The search query
- * @returns {Promise<Array>} Array of movie results
+ * Søk etter filmer etter tittel (returnerer flere resultater)
+ * @param {string} searchQuery - Søkspørringen
+ * @returns {Promise<Array>} Matrise av filmresultater
  */
 export async function searchMovies(searchQuery) {
   if (!searchQuery || searchQuery.length < 2) {
@@ -34,7 +34,7 @@ export async function searchMovies(searchQuery) {
       return [];
     }
 
-    // Return first 8 results
+    // Returner første 8 resultater
     return data.Search.slice(0, 8).map((result) => ({
       title: result.Title,
       year: result.Year,
@@ -42,15 +42,15 @@ export async function searchMovies(searchQuery) {
       poster: result.Poster,
     }));
   } catch (error) {
-    console.error("Error searching movies:", error);
+    console.error("Feil ved søk etter filmer:", error);
     return [];
   }
 }
 
 /**
- * Fetch movie data from OMDb API
- * @param {string} movieTitle - The movie title to search for
- * @returns {Promise<Object|null>} Movie data object or null if not found
+ * Hent filmdata fra OMDb API
+ * @param {string} movieTitle - Filmtittelen som skal søkes etter
+ * @returns {Promise<Object|null>} Filmdataobjekt eller null hvis ikke funnet
  */
 export async function fetchMovieData(movieTitle) {
   try {
@@ -66,7 +66,7 @@ export async function fetchMovieData(movieTitle) {
 
     const data = await response.json();
 
-    // Check if movie was found
+    // Sjekk om filmen ble funnet
     if (data.Response === "False") {
       return null;
     }
@@ -77,33 +77,33 @@ export async function fetchMovieData(movieTitle) {
       rating: parseFloat(data.imdbRating),
     };
   } catch (error) {
-    console.error("Error fetching movie data:", error);
+    console.error("Feil ved henting av filmdata:", error);
     throw new Error("Feil ved henting av filmdata. Prøv igjen.");
   }
 }
 
 /**
- * Generate plausible rating options within range of correct rating
- * @param {number} correctRating - The correct IMDb rating
- * @param {number} count - Number of options to generate (excluding correct)
- * @param {number} range - How far to deviate from correct rating (±range)
- * @returns {number[]} Array of plausible ratings
+ * Generer plausible vurderingsalternativer innenfor område av riktig vurdering
+ * @param {number} correctRating - Den riktige IMDb-vurderingen
+ * @param {number} count - Antall alternativer som skal genereres (unntatt korrekt)
+ * @param {number} range - Hvor langt skal avvike fra riktig vurdering (±range)
+ * @returns {number[]} Matrise av plausible vurderinger
  */
 function generatePlausibleRatings(correctRating, count, range) {
   const ratings = new Set();
 
   while (ratings.size < count) {
-    // Generate random deviation within range
+    // Generer tilfeldig avvik innenfor område
     const deviation = (Math.random() - 0.5) * 2 * range;
     let newRating = correctRating + deviation;
 
-    // Clamp to valid IMDb range
+    // Klemm til gyldig IMDb-område
     newRating = Math.max(1.0, Math.min(10.0, newRating));
 
-    // Round to one decimal place
+    // Rund til en desimal
     newRating = Math.round(newRating * 10) / 10;
 
-    // Avoid duplicates and the correct answer
+    // Unngå duplikater og riktig svar
     if (newRating !== correctRating) {
       ratings.add(newRating);
     }
@@ -113,9 +113,9 @@ function generatePlausibleRatings(correctRating, count, range) {
 }
 
 /**
- * Generate a Movie Rating question in multiple choice mode
- * @param {string} movieTitle - Movie title to fetch
- * @returns {Promise<Object>} Question JSON object
+ * Generer et filmvurderingsspørsmål i multiple choice-modus
+ * @param {string} movieTitle - Filmtittel som skal hentes
+ * @returns {Promise<Object>} Spørsmål JSON-objekt
  */
 export async function generateMovieRatingMultipleChoice(movieTitle) {
   const movie = await fetchMovieData(movieTitle);
@@ -128,13 +128,13 @@ export async function generateMovieRatingMultipleChoice(movieTitle) {
 
   const correctRating = Math.round(movie.rating * 10) / 10;
 
-  // Generate 3 plausible wrong answers within ±1.5 of correct rating
+  // Generer 3 plausible gale svar innenfor ±1,5 av riktig vurdering
   const wrongRatings = generatePlausibleRatings(correctRating, 3, 1.5);
 
-  // Combine all answers
+  // Kombiner alle svar
   const allAnswers = [correctRating, ...wrongRatings];
 
-  // Shuffle answers
+  // Bland svar
   const shuffledAnswers = allAnswers.sort(() => Math.random() - 0.5);
 
   return {
@@ -146,9 +146,9 @@ export async function generateMovieRatingMultipleChoice(movieTitle) {
 }
 
 /**
- * Generate a Movie Rating question in text answer mode
- * @param {string} movieTitle - Movie title to fetch
- * @returns {Promise<Object>} Question JSON object
+ * Generer et filmvurderingsspørsmål i tekstsvar-modus
+ * @param {string} movieTitle - Filmtittel som skal hentes
+ * @returns {Promise<Object>} Spørsmål JSON-objekt
  */
 export async function generateMovieRatingTextAnswer(movieTitle) {
   const movie = await fetchMovieData(movieTitle);
@@ -170,11 +170,11 @@ export async function generateMovieRatingTextAnswer(movieTitle) {
 }
 
 /**
- * Validate if an answer is correct for text mode
- * @param {string} userAnswer - User's answer as string
- * @param {string} correctAnswer - Correct answer as string
- * @param {number} acceptedRange - Tolerance range
- * @returns {boolean} True if answer is within accepted range
+ * Valider om et svar er korrekt for tekstmodus
+ * @param {string} userAnswer - Brukerens svar som streng
+ * @param {string} correctAnswer - Riktig svar som streng
+ * @param {number} acceptedRange - Toleranseområde
+ * @returns {boolean} Sant hvis svar er innenfor akseptert område
  */
 export function validateMovieRatingAnswer(
   userAnswer,
