@@ -164,12 +164,12 @@ async function loadQuizzes(category = "newest") {
                 <div class="quiz-list-title">${escapeHtml(q.title)}</div>
                 <div class="quiz-list-description">${escapeHtml(q.description || "Ingen beskrivelse")}</div>
                 <div class="quiz-list-meta">
-                  <span>📅 ${new Date(q.created_at).toLocaleDateString("no-NO")}</span>
-                  <span>📝 ${typeof q.answers_count === "number" ? q.answers_count : 0} svar</span>
+                  <span>${new Date(q.created_at).toLocaleDateString("no-NO")}</span>
+                  <span>${typeof q.answers_count === "number" ? q.answers_count : 0} svar</span>
                 </div>
               </div>
               <div class="quiz-list-actions">
-                <button class="btn btn-primary">🎮 Spill Quiz</button>
+                <button class="btn btn-primary">Spill Quiz</button>
               </div>
             </div>
           </div>
